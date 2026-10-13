@@ -23,15 +23,52 @@ var SVGNS = 'http://www.w3.org/2000/svg';
 
 function run(){
   var f = document.getElementById('f');
-  f.onload = function(){ go(f); };
-  setTimeout(function(){ if (!f.contentWindow.App) go(f); }, 800);
+  // 竞态：如果 iframe 在本脚本执行前就已加载完，load 事件不会再触发，
+  // 所以除了监听 load，还必须有一个「就绪轮询」兜底。
+  f.addEventListener('load', function(){ go(f); });
+  var tries = 0;
+  var iv = setInterval(function () {
+    tries++;
+    var ready = false;
+    try {
+      ready = !!(f.contentWindow && f.contentWindow.App);
+    } catch (e) {
+      // 双击（file://）打开时，浏览器可能禁止父页面访问 iframe 内容
+      clearInterval(iv);
+      P('FAIL  无法访问 iframe 内的应用 :: ' + (e && e.message));
+      P('');
+      P('请改用本地服务打开（file:// 下浏览器会拦截跨文件访问）：');
+      P('  python3 -m http.server 8000 --bind 127.0.0.1');
+      P('  然后访问 http://127.0.0.1:8000/smoke-test.html');
+      P('SMOKE_DONE');
+      return;
+    }
+    if (ready) { clearInterval(iv); go(f); return; }
+    if (tries > 100) {                       // 等了 10 秒还不行就明确报错，不再静默卡死
+      clearInterval(iv);
+      P('FAIL  iframe 内的应用 10 秒内未就绪');
+      P('SMOKE_DONE');
+    }
+  }, 100);
 }
 var started = false;
 function go(f){
   if (started) return; started = true;
   f.style.width = Math.max(360, window.innerWidth) + 'px';
   f.style.height = Math.max(420, window.innerHeight) + 'px';
-  var win = f.contentWindow, doc = f.contentDocument;
+  var win, doc;
+  try {
+    win = f.contentWindow; doc = f.contentDocument;
+  } catch (e) {
+    F++;
+    P('FAIL  无法访问 iframe 内的应用 :: ' + (e && e.message));
+    P('');
+    P('请改用本地服务打开（file:// 下浏览器会拦截跨文件访问）：');
+    P('  python3 -m http.server 8000 --bind 127.0.0.1');
+    P('  然后访问 http://127.0.0.1:8000/smoke-test.html');
+    P('SMOKE_DONE');
+    return;
+  }
   win.onerror = function(m, s, l){ ERRS.push(m + ' @' + l); };
   var oldErr = win.console.error;
   win.console.error = function(){ ERRS.push(Array.prototype.join.call(arguments, ' ')); oldErr.apply(win.console, arguments); };
