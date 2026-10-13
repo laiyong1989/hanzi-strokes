@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="笔顺乐园">
+<meta name="theme-color" content="#FFF9F2">
+<title>生字笔顺乐园 · 小学语文写字</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ============ 图标库（内联 SVG，离线可用） ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.45L12 17.45 6.2 20.5l1.1-6.45-4.7-4.6 6.5-.95z"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="5.6" opacity=".45" fill="none" stroke-width="1.6" stroke="#fff"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.2c2.8-1.1 5.3-1.1 8 .6 2.7-1.7 5.2-1.7 8-.6v13.2c-2.8-1.1-5.3-1.1-8 .6-2.7-1.7-5.2-1.7-8-.6z"/><path d="M12 5.8v13.2" stroke="#fff" stroke-width="1.5" fill="none"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" fill="none" stroke-width="2.6" stroke="currentColor"/><path d="M15.2 15.2l4.6 4.6" stroke-width="2.8" fill="none" stroke-linecap="round" stroke="currentColor"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 3.2v17.6" stroke-width="2.4" fill="none" stroke-linecap="round" stroke="currentColor"/><path d="M6 4.4c4.6-2 8.8 2 13.6 0v8.4c-4.8 2-9-2-13.6 0z"/></symbol>
+  <symbol id="i-pet" viewBox="0 0 24 24"><ellipse cx="12" cy="14.6" rx="6.2" ry="5.4"/><circle cx="4.9" cy="8.4" r="2.5"/><circle cx="19.1" cy="8.4" r="2.5"/><circle cx="9.2" cy="4.4" r="2.4"/><circle cx="14.8" cy="4.4" r="2.4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.4" y="5.2" width="17.2" height="15.4" rx="3"/><path d="M3.4 10h17.2" stroke="#fff" stroke-width="1.6"/><path d="M8 3.2v3.6M16 3.2v3.6" stroke-width="2.2" stroke-linecap="round" stroke="currentColor"/><path d="M8.6 14.2l2.2 2.3 4.4-4.4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.6 4.6L7 12l7.6 7.4" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.4h3.4L12 5.2v13.6L7.4 14.6H4z"/><path d="M15.4 9.2a4 4 0 010 5.6" fill="none" stroke-width="2.2" stroke-linecap="round" stroke="currentColor"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9.4 5.4L4.6 10l4.8 4.6" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/><path d="M4.6 10h8.2a5.6 5.6 0 110 11.2" fill="none" stroke-width="2.6" stroke-linecap="round" stroke="currentColor"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M12 2.8a6.6 6.6 0 00-3.9 11.9c.7.6 1.1 1.5 1.1 2.4h5.6c0-.9.4-1.8 1.1-2.4A6.6 6.6 0 0012 2.8z"/><path d="M9.6 19.4h4.8M10.4 21.6h3.2" stroke-width="2" stroke-linecap="round" stroke="currentColor"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.2" y="10.4" width="13.6" height="10.4" rx="3"/><path d="M8.4 10.4V8a3.6 3.6 0 017.2 0v2.4" fill="none" stroke-width="2.2" stroke="currentColor"/></symbol>
+  <symbol id="i-egg" viewBox="0 0 24 24"><path d="M12 2.8c3.6 0 6.6 6 6.6 10.4S15.6 21.2 12 21.2 5.4 17.6 5.4 13.2 8.4 2.8 12 2.8z"/></symbol>
+</defs></svg>
+
+<div id="app">
+
+  <!-- ============ 顶栏 ============ -->
+  <header id="topbar" class="topbar">
+    <button class="tb-btn" id="btnBack" hidden><svg class="ic"><use href="#i-back"/></svg></button>
+    <div class="tb-title" id="tbTitle">生字笔顺乐园</div>
+    <div class="tb-stats">
+      <span class="chip chip-star"><svg class="ic"><use href="#i-star"/></svg><b id="statStars">0</b></span>
+      <span class="chip chip-coin"><svg class="ic"><use href="#i-coin"/></svg><b id="statCoins">0</b></span>
+      <button class="tb-btn" id="btnSound" title="声音开关"><svg class="ic"><use href="#i-sound"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ============ 首页 ============ -->
+  <section class="screen" id="scHome">
+    <div class="hero">
+      <div class="hero-pet" id="heroPet">
+        <img id="heroPetImg" alt="我的宠物">
+        <div class="hero-pet-name" id="heroPetName">宠物蛋</div>
+      </div>
+      <div class="hero-txt">
+        <h1>今天也要写好字哦</h1>
+        <p id="heroTip">按课文一课一课学，笔顺写对了就有金币！</p>
+        <button class="btn btn-main btn-lg" data-go="learn">开始写字</button>
+      </div>
+    </div>
+
+    <div class="tile-grid">
+      <button class="tile t-blue" data-go="checkin">
+        <svg class="ic ic-lg"><use href="#i-cal"/></svg>
+        <span class="tile-t">每日打卡</span>
+        <span class="tile-s" id="tileCheckin">5 分钟 · 还没打卡</span>
+      </button>
+      <button class="tile t-pink" data-go="catalog">
+        <svg class="ic ic-lg"><use href="#i-book"/></svg>
+        <span class="tile-t">按课文学习</span>
+        <span class="tile-s">12 册 · 逐课写字</span>
+      </button>
+      <button class="tile t-green" data-go="dict">
+        <svg class="ic ic-lg"><use href="#i-search"/></svg>
+        <span class="tile-t">查字典</span>
+        <span class="tile-s">拼音 / 部首找字</span>
+      </button>
+      <button class="tile t-purple" data-go="levels">
+        <svg class="ic ic-lg"><use href="#i-flag"/></svg>
+        <span class="tile-t">闯关模式</span>
+        <span class="tile-s" id="tileLevels">已通关 0 关</span>
+      </button>
+      <button class="tile t-orange" data-go="pet">
+        <svg class="ic ic-lg"><use href="#i-pet"/></svg>
+        <span class="tile-t">宠物养成</span>
+        <span class="tile-s" id="tilePet">看看我的宠物</span>
+      </button>
+      <button class="tile t-gray" data-go="about">
+        <svg class="ic ic-lg"><use href="#i-bulb"/></svg>
+        <span class="tile-t">家长须知</span>
+        <span class="tile-s">数据与安全说明</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ 按课文学习：册 -> 单元 -> 课 ============ -->
+  <section class="screen" id="scCatalog">
+    <div class="crumb" id="catCrumb"></div>
+    <div class="sem-list" id="semList"></div>
+    <div class="unit-list" id="unitList" hidden></div>
+    <div class="lesson-list" id="lessonList" hidden></div>
+  </section>
+
+  <!-- ============ 字表（一课的汉字） ============ -->
+  <section class="screen" id="scChars">
+    <div class="lesson-head" id="charHead"></div>
+    <div class="char-grid" id="charGrid"></div>
+    <div class="row-actions">
+      <button class="btn btn-ghost" id="btnWholeLesson">整课连写</button>
+    </div>
+  </section>
+
+  <!-- ============ 练字页 ============ -->
+  <section class="screen" id="scPractice">
+    <div class="prac-top">
+      <div class="prac-progress" id="pracProgress"></div>
+      <div class="prac-tabs">
+        <button class="tab on" data-mode="trace">描红</button>
+        <button class="tab" data-mode="write">自己写</button>
+      </div>
+      <div class="speed-seg" id="speedSeg">
+        <span class="speed-lb">演示速度</span>
+        <button class="sp" data-sp="1.9">慢</button>
+        <button class="sp on" data-sp="1">正常</button>
+        <button class="sp" data-sp="0.55">快</button>
+      </div>
+      <button class="btn-read" id="btnRead" aria-pressed="true" title="换到新字时自动读一次它的读音">
+        <svg class="ic"><use href="#i-sound"/></svg><span>自动朗读</span>
+      </button>
+      <div class="voice-seg" id="voiceSeg" role="group" aria-label="朗读发音">
+        <span class="voice-lb">发音</span>
+        <button class="vb on" data-voice="zh" title="国语（普通话）">国语</button>
+        <button class="vb" data-voice="yue" title="粤语（广东话）">粤语</button>
+        <button class="vb" data-voice="en" title="英语：读这个字的英文单词">English</button>
+      </div>
+    </div>
+
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <svg class="stage-svg" id="stageSvg" viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid meet"></svg>
+        <canvas class="ink" id="ink"></canvas>
+      </div>
+      <div class="stage-side">
+        <div class="pinyin" id="pracPinyin"></div>
+        <div class="strokes-box">
+          <div class="strokes-title">笔顺</div>
+          <div class="stroke-dots" id="strokeDots"></div>
+        </div>
+        <div class="dict-mini" id="pracDict"></div>
+      </div>
+    </div>
+
+    <div class="prac-bar">
+      <button class="btn btn-ghost" id="btnUndo"><svg class="ic"><use href="#i-undo"/></svg>擦一笔</button>
+      <button class="btn btn-ghost" id="btnHint"><svg class="ic"><use href="#i-bulb"/></svg>看提示</button>
+      <button class="btn btn-ghost" id="btnDemo">看笔顺动画</button>
+      <button class="btn btn-main" id="btnNextChar">下一个字</button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <!-- ============ 查字典 ============ -->
+  <section class="screen" id="scDict">
+    <div class="dict-bar">
+      <div class="seg">
+        <button class="seg-btn on" data-dtab="pinyin">拼音查字</button>
+        <button class="seg-btn" data-dtab="radical">部首查字</button>
+      </div>
+      <div class="search-row">
+        <svg class="ic ic-search"><use href="#i-search"/></svg>
+        <input id="dictInput" type="search" inputmode="text" autocomplete="off" placeholder="输入拼音，如 chun 或 chūn">
+        <button class="btn btn-mini" id="dictClear">清空</button>
+      </div>
+      <div class="dict-hint" id="dictHint"></div>
+    </div>
+    <div class="radical-panel" id="radicalPanel" hidden></div>
+    <div class="dict-results" id="dictResults"></div>
+  </section>
+
+  <!-- ============ 闯关 ============ -->
+  <section class="screen" id="scLevels">
+    <div class="lv-head">
+      <h2>闯关模式</h2>
+      <p>每一课是一关，写完本课全部生字即可通关，笔顺全对拿三颗星</p>
+      <div class="seg seg-small" id="lvSemSeg"></div>
+    </div>
+    <div class="lv-list" id="lvList"></div>
+  </section>
+
+  <!-- ============ 宠物 ============ -->
+  <section class="screen" id="scPet">
+    <div class="pet-stage">
+      <div class="pet-show">
+        <img id="petImg" alt="宠物">
+        <div class="pet-shadow"></div>
+      </div>
+      <div class="pet-info">
+        <h2 id="petName">宠物蛋</h2>
+        <div class="pet-lv" id="petStage">孵化进度 0 / 7 天</div>
+        <div class="bar"><i id="petBar"></i></div>
+        <p class="pet-desc" id="petDesc">每天完成打卡，就能让蛋快快孵化。</p>
+      </div>
+    </div>
+    <div class="pet-actions">
+      <button class="btn btn-main" id="btnFeed">喂食（20 金币）</button>
+      <button class="btn btn-ghost" id="btnSwitchPet">换一只宠物</button>
+      <button class="btn btn-ghost" id="btnPetCheckin">去打卡</button>
+    </div>
+    <div class="pet-album" id="petAlbum"></div>
+    <div class="log" id="petLog"></div>
+  </section>
+
+  <!-- ============ 每日打卡 ============ -->
+  <section class="screen" id="scCheckin">
+    <div class="ck-head">
+      <h2>每日打卡写字</h2>
+      <p>每天一小会儿（最多 5 分钟），坚持就有奖励</p>
+    </div>
+    <div class="ck-timer">
+      <div class="ring" id="ckRing"><span id="ckTime">5:00</span></div>
+      <div class="ck-stats">
+        <div><b id="ckDays">0</b><span>累计打卡</span></div>
+        <div><b id="ckStreak">0</b><span>连续天数</span></div>
+        <div><b id="ckToday">0/5</b><span>今日字数</span></div>
+      </div>
+    </div>
+    <div class="ck-body">
+      <p class="ck-label">今日要写的字（按你的学习进度自动挑选）</p>
+      <div class="char-grid char-grid-sm" id="ckGrid"></div>
+      <div class="row-actions">
+        <button class="btn btn-main" id="btnCkStart">开始打卡</button>
+        <button class="btn btn-ghost" id="btnCkClaim" disabled>领取奖励</button>
+      </div>
+    </div>
+    <div class="ck-days" id="ckCalendar"></div>
+  </section>
+
+  <!-- ============ 家长须知 ============ -->
+  <section class="screen" id="scAbout">
+    <article class="doc">
+      <h2>家长须知</h2>
+      <h3>安全说明</h3>
+      <ul>
+        <li>本应用完全离线运行，不联网、不收集任何个人信息，也没有任何广告或内购。</li>
+        <li>学习进度只保存在这台设备（浏览器本地存储）中，可随时在下方一键清除。</li>
+        <li>没有外部链接，不会跳转到其它网站。</li>
+      </ul>
+      <h3>内容说明</h3>
+      <ul>
+        <li>汉字笔顺数据来自 Make Me a Hanzi（Arphic Public License），字形为楷体轮廓，因此带有真实的笔锋。</li>
+        <li>课程依据统编版（人教版）小学语文《写字表》编排：一、二年级按课文逐课组织，三至六年级按册组织；不同教材印次可能有少量差异。</li>
+        <li>拼音、部首、笔画与释义取自公开字典数据，仅供学习参考。</li>
+      </ul>
+      <h3>使用建议</h3>
+      <ul>
+        <li>建议每次 10–15 分钟，用完 5 分钟的「每日打卡」即可，不要让孩子长时间盯着屏幕。</li>
+        <li>写对笔顺给星星和金币，写错不会扣分，只会轻声提醒并演示正确的写法，请鼓励孩子多试几次。</li>
+        <li>在 iPad / 平板上横屏使用体验更好；可以「添加到主屏幕」，像 App 一样打开。</li>
+      </ul>
+      <div class="row-actions">
+        <button class="btn btn-ghost" id="btnExport">导出学习记录</button>
+        <button class="btn btn-danger" id="btnReset">清除全部学习记录</button>
+      </div>
+      <p class="ver" id="aboutVer"></p>
+    </article>
+  </section>
+
+  <!-- ============ 闯关完成弹层 ============ -->
+  <div class="modal-mask" id="modalMask" hidden>
+    <div class="modal" id="modalBox"></div>
+  </div>
+
+  <div class="loading" id="loading" hidden><div class="spinner"></div><p id="loadingTxt">正在准备字帖…</p></div>
+</div>
+
+<script src="data/curriculum.js"></script>
+<script src="data/dict.js"></script>
+<script src="js/store.js"></script>
+<script src="js/hanzi.js"></script>
+<script src="js/app.js"></script>
+<script>
+/* 离线缓存：只有通过 http(s) 打开时才注册。双击本地文件（file://）与不支持的环境都会静默跳过。 */
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  if (!window.isSecureContext) return;        // 局域网 http 打开时浏览器本就不允许注册
+  if (location.protocol === 'file:') return;  // 双击本地文件打开时不需要
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { });
+  });
+})();
+</script>
+</body>
+</html>

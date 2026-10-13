@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>smoke</title>
+<style>body{font:13px/1.55 -apple-system,monospace;margin:0}
+#iframeWrap{position:absolute;left:-9999px;top:0;width:1100px;height:820px}
+pre{padding:10px;white-space:pre-wrap}</style>
+</head><body>
+<div id="iframeWrap"><iframe id="f" src="index.html" style="border:0"></iframe></div>
+<pre id="out">running…</pre>
+<script>
+var out = document.getElementById('out'), LINES = [], ERRS = [];
+function P(s){ LINES.push(s); out.textContent = LINES.join('\n'); }
+var N = 0, F = 0;
+function T(name, fn){
+  try {
+    var r = fn();
+    if (r === true) { N++; P('ok    ' + name); }
+    else if (typeof r === 'string') { F++; P('FAIL  ' + name + '  :: ' + r); }
+    else { F++; P('FAIL  ' + name + '  :: ' + JSON.stringify(r)); }
+  } catch (e) { F++; P('FAIL  ' + name + '  :: ' + (e && e.message)); }
+}
+function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+var SVGNS = 'http://www.w3.org/2000/svg';
+
+function run(){
+  var f = document.getElementById('f');
+  f.onload = function(){ go(f); };
+  setTimeout(function(){ if (!f.contentWindow.App) go(f); }, 800);
+}
+var started = false;
+function go(f){
+  if (started) return; started = true;
+  f.style.width = Math.max(360, window.innerWidth) + 'px';
+  f.style.height = Math.max(420, window.innerHeight) + 'px';
+  var win = f.contentWindow, doc = f.contentDocument;
+  win.onerror = function(m, s, l){ ERRS.push(m + ' @' + l); };
+  var oldErr = win.console.error;
+  win.console.error = function(){ ERRS.push(Array.prototype.join.call(arguments, ' ')); oldErr.apply(win.console, arguments); };
+  main(win, doc).catch(function(e){ F++; P('FAIL  测试主流程异常  :: ' + (e && (e.stack || e.message))); P(''); P('===== 通过 ' + N + ' / 失败 ' + F + ' ====='); P('SMOKE_DONE'); });
+}
+
+async function main(win, doc){
+  await wait(300);
+  var CUR = win.HZ_CURRICULUM, HZ = win.HZ, Store = win.Store;
+
+  /* ---------- 1. 数据完整性 ---------- */
+  T('课程含 12 册', function(){ return Object.keys(CUR).length === 12 ? true : ('册数=' + Object.keys(CUR).length); });
+  var tot = 0, lessonN = 0;
+  Object.keys(CUR).forEach(function(k){
+    CUR[k].units.forEach(function(u){ u.lessons.forEach(function(L){ tot += L.chars.length; lessonN++; }); });
+  });
+  T('生字总数 2000~3000', function(){ return (tot > 2000 && tot < 3000) ? true : ('总字数=' + tot); });
+  T('课数 200 以上', function(){ return lessonN > 200 ? true : ('课数=' + lessonN); });
+  T('一年级上册有 26 课', function(){
+    var n = 0; CUR['1a'].units.forEach(function(u){ n += u.lessons.length; }); return n === 26 ? true : ('课数=' + n); });
+  T('二年级下册有 29 课', function(){
+    var n = 0; CUR['2b'].units.forEach(function(u){ n += u.lessons.length; }); return n === 29 ? true : ('课数=' + n); });
+  T('字典数据存在', function(){ return Object.keys(win.HZ_DICT).length > 2000 ? true : ('字典字数=' + Object.keys(win.HZ_DICT).length); });
+  T('字典含拼音/部首', function(){
+    var d = win.HZ_DICT['春']; return (d.p && d.p.length > 0 && !!d.r) ? true : ('春=' + JSON.stringify(d)); });
+
+  /* ---------- 2. 笔顺数据加载 ---------- */
+  await HZ.loadSem('1a');
+  await HZ.loadSem('2b');
+  T('加载 1a 字帖', function(){ return !!HZ.dataOf('一'); });
+  T('「一」是 1 笔', function(){ return HZ.dataOf('一').s.length === 1 ? true : ('笔画=' + HZ.dataOf('一').s.length); });
+  T('「二」是 2 笔', function(){ var d = HZ.dataOf('二'); return d.s.length === 2 && d.m.length === 2; });
+  T('「明」笔画数与字典一致', function(){
+    var d = HZ.dataOf('明'), s = win.HZ_DICT['明'].s; return (d.s.length === s) ? true : ('svg=' + d.s.length + ' dict=' + s); });
+  T('静态 SVG 含 path', function(){
+    var s = HZ.staticSvg('一'); return s.querySelectorAll('path').length === 1; });
+
+  /* ---------- 3. 判定引擎（合成轨迹） ---------- */
+  function mk(char, mode){
+    var stage = doc.createElement('div');
+    stage.style.cssText = 'position:relative;width:420px;height:420px;touch-action:none';
+    doc.body.appendChild(stage);
+    var svg = doc.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 1024 1024');
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+    var cv = doc.createElement('canvas');
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+    stage.appendChild(svg); stage.appendChild(cv);
+    var evs = [];
+    var p = HZ.createPractice({ svg: svg, canvas: cv, stage: stage, char: char, mode: mode || 'trace',
+      onStroke: function(e){ evs.push(e); }, onDone: function(e){ evs.push({ type: 'done', d: e }); } });
+    p.resize(); p.evs = evs; p.cvs = cv; p.stageEl = stage;
+    return p;
+  }
+  function medVB(ch, i){ return HZ.medianScreen(HZ.dataOf(ch).m[i]); }
+
+  var p1 = mk('一');
+  T('练习对象可创建', function(){ return !!p1 && p1.totalStrokes === 1; });
+  p1.judge(medVB('一', 0));
+  T('正确的一笔被接受', function(){ return p1.index() === 1 ? true : ('idx=' + p1.index()); });
+
+  var p2 = mk('二');
+  p2.judge(medVB('二', 1));                     // 故意先写第二笔
+  T('笔顺错误被识别', function(){
+    var e = p2.evs.filter(function(x){ return x.type === 'order'; });
+    return e.length === 1 ? true : JSON.stringify(p2.evs); });
+  T('笔顺错误时进度不前进', function(){ return p2.index() === 0; });
+  p2.judge(medVB('二', 0));
+  T('改正后第一笔通过', function(){ return p2.index() === 1 ? true : ('idx=' + p2.index()); });
+
+  var p3 = mk('十');
+  T('「十」2 笔', function(){ return p3.totalStrokes === 2; });
+  p3.judge(medVB('十', 0)); p3.judge(medVB('十', 1));
+  await wait(700);
+  T('整字写完触发完成回调', function(){
+    return p3.evs.some(function(x){ return x.type === 'done'; }) ? true : JSON.stringify(p3.evs); });
+  T('写完后多余笔画不崩溃', function(){
+    p3.judge([[100,100],[120,120]]); return p3.index() === 2 ? true : ('idx=' + p3.index()); });
+  T('与目标无关的乱画不通过', function(){
+    var p4 = mk('口'); p4.judge([[900,60],[960,90],[920,140]]);
+    return p4.index() === 0 ? true : ('idx=' + p4.index()); });
+  T('单点/抖动不产生笔画', function(){
+    var p6 = mk('一'); p6.judge([[500,500],[501,501]]); return p6.index() === 0 ? true : 'idx=' + p6.index(); });
+
+  /* ---------- 4. 真实触摸/笔输入链路 ---------- */
+  var p5 = mk('一');
+  T('canvas 可获取尺寸', function(){
+    var r = p5.cvs.getBoundingClientRect(); return r.width > 100 && r.height > 100; });
+  (function(){
+    var r = p5.cvs.getBoundingClientRect(), med = medVB('一', 0);
+    function ev(type, vb){
+      var e = new win.PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true,
+        clientX: r.left + vb[0] / 1024 * r.width, clientY: r.top + vb[1] / 1024 * r.height
+      });
+      p5.cvs.dispatchEvent(e);
+    }
+    ev('pointerdown', med[0]);
+    for (var i = 1; i < med.length; i++) ev('pointermove', med[i]);
+    ev('pointerup', med[med.length - 1]);
+  })();
+  T('触屏手写轨迹可使笔顺通过', function(){ return p5.index() === 1 ? true : ('idx=' + p5.index()); });
+
+  /* ---------- 5. 界面各页 ---------- */
+  var App = win.App;
+  App.go('catalog', null, false); await wait(60);
+  T('选册页显示 12 册', function(){ var n = doc.querySelectorAll('#semList .card').length; return n === 12 ? true : ('卡片=' + n); });
+  doc.querySelector('#semList .card').click(); await wait(60);
+  T('单元列表出现', function(){ return doc.querySelectorAll('#unitList .unit-group').length > 0; });
+  var firstLesson = doc.querySelector('#unitList .lsn');
+  T('每课显示生字', function(){ return !!firstLesson && /\S/.test(firstLesson.textContent); });
+  firstLesson.click(); await wait(120);
+  T('字表页显示本课字格', function(){
+    return doc.querySelectorAll('#charGrid .cell').length > 0 ? true : '无字格'; });
+  T('字格已渲染字形', function(){
+    return doc.querySelectorAll('#charGrid .cell svg path').length > 0; });
+
+  var cells = doc.querySelectorAll('#charGrid .cell');
+  T('字格可点击', function(){ return cells.length > 0 ? true : '没有字格可点'; });
+  if (cells.length) cells[0].click();
+  await wait(900);
+  T('进入练字页', function(){ return doc.getElementById('scPractice').classList.contains('on'); });
+  T('练字页 SVG 有米字格与字形', function(){
+    return doc.querySelectorAll('#stageSvg rect').length >= 1 && doc.querySelectorAll('#stageSvg path').length >= 1; });
+  T('练字页显示拼音', function(){ return doc.getElementById('pracPinyin').textContent !== '—'; });
+  T('笔顺圆点数量正确', function(){
+    return doc.querySelectorAll('#strokeDots .sdot').length > 0; });
+  T('练字页元信息不重复', function(){
+    var t = doc.getElementById('pracDict').innerHTML;
+    return (t.match(/部首/g) || []).length === 1; });
+  T('返回按钮回到字表页', function(){
+    doc.getElementById('btnBack').click(); return doc.getElementById('scChars').classList.contains('on'); });
+
+  App.go('dict', null, false); await wait(80);
+  var inp = doc.getElementById('dictInput');
+  inp.value = 'yi'; inp.dispatchEvent(new win.Event('input', { bubbles: true })); await wait(60);
+  T('拼音查字有结果', function(){ return doc.querySelectorAll('#dictResults .dr-card').length > 0; });
+  T('拼音 yi 命中「一」', function(){
+    var t = doc.getElementById('dictResults').textContent; return t.indexOf('一') >= 0; });
+  inp.value = 'chun'; inp.dispatchEvent(new win.Event('input', { bubbles: true })); await wait(50);
+  T('拼音 chun 命中「春」', function(){
+    return doc.getElementById('dictResults').textContent.indexOf('春') >= 0; });
+  inp.value = ''; inp.dispatchEvent(new win.Event('input', { bubbles: true }));
+  doc.querySelector('[data-dtab="radical"]').click(); await wait(60);
+  T('部首面板有部首', function(){ return doc.querySelectorAll('#radicalPanel .rad-btn').length > 20; });
+  doc.querySelector('#radicalPanel .rad-btn').click(); await wait(60);
+  T('点部首出结果', function(){ return doc.querySelectorAll('#dictResults .dr-card').length > 0; });
+
+  App.go('levels', null, false); await wait(80);
+  T('闯关页有 26 关', function(){
+    var n = doc.querySelectorAll('#lvList .lv-card').length; return n === 26 ? true : ('关卡=' + n); });
+  T('闯关页可切册', function(){
+    var segs = doc.querySelectorAll('#lvSemSeg .seg-btn');
+    if (segs.length !== 12) return segs.length;
+    segs[1].click();
+    return doc.querySelectorAll('#lvList .lv-card').length > 0; });
+
+  App.go('pet', null, false); await wait(80);
+  T('宠物页显示图片', function(){ return /assets\/pets\//.test(doc.getElementById('petImg').getAttribute('src')); });
+  T('宠物相册 10 格', function(){ var n = doc.querySelectorAll('#petAlbum .pa').length; return n === 10 ? true : ('相册格=' + n); });
+  var feedMsg = '';
+  doc.getElementById('btnFeed').click();
+  feedMsg = doc.getElementById('toast').textContent;
+  T('未孵化时喂食有提示', function(){ return feedMsg.length > 0 ? true : '无提示'; });
+
+  App.go('checkin', null, false); await wait(120);
+  T('打卡页显示 5 个字', function(){
+    var n = doc.querySelectorAll('#ckGrid .cell').length; return n === 5 ? true : ('格子=' + n); });
+  T('打卡日历 14 天', function(){ return doc.querySelectorAll('#ckCalendar .day-dot').length === 14; });
+  T('打卡页有计时器 5:00', function(){ var t = doc.getElementById('ckTime').textContent; return t === '5:00' ? true : ('时间=' + t); });
+  T('打卡页字形已渲染', function(){ return doc.querySelectorAll('#ckGrid svg path').length > 0; });
+
+  App.go('about', null, false); await wait(60);
+  T('家长须知显示收录字数', function(){ return /个生字/.test(doc.getElementById('aboutVer').textContent); });
+  T('家长须知含安全说明', function(){ return doc.getElementById('scAbout').textContent.indexOf('不收集任何个人信息') > 0; });
+
+  /* ---------- 6. 奖励与存储 ---------- */
+  App.go('home', null, false); await wait(40);
+  var before = Store.state.coins;
+  Store.markChar('一', 3);
+  T('写字得金币', function(){ return Store.state.coins > before ? true : ('金币=' + Store.state.coins); });
+  T('金币数显示在顶栏', function(){
+    return doc.getElementById('statCoins').textContent === String(Store.state.coins); });
+  T('localStorage 已保存', function(){
+    return !!win.localStorage.getItem('hzpb.v1'); });
+
+  /* ---------- 6.5 按钮与打卡流程 ---------- */
+  App.go('catalog', null, false); await wait(40);
+  doc.querySelector('#semList .card').click(); await wait(40);
+  doc.querySelector('#unitList .lsn').click(); await wait(80);
+  doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(800);
+  T('练字页按钮不报错', function(){
+    doc.getElementById('btnUndo').click();
+    doc.getElementById('btnHint').click();
+    doc.getElementById('btnDemo').click();
+    doc.getElementById('btnNextChar').click();
+    return true; });
+  await wait(400);
+  T('切到「自己写」模式正常', function(){
+    var tabs = doc.querySelectorAll('.prac-tabs .tab');
+    tabs[1].click();
+    return doc.querySelectorAll('.prac-tabs .tab')[1].classList.contains('on') ? true : '模式未切换'; });
+  App.go('checkin', null, false); await wait(120);
+  var ck = Store.checkin();
+  ck.todayChars = ['一','二','三','四','五'];
+  render_ck(); await wait(60);
+  function render_ck(){ App.go('checkin', null, false); }
+  doc.getElementById('btnCkClaim').click(); await wait(120);
+  T('打卡领奖成功', function(){
+    return (Store.state.checkin.days.length === 1 &&
+            Store.state.pet.hatchDays === 1) ? true :
+      ('days=' + Store.state.checkin.days.length + ' hatch=' + Store.state.pet.hatchDays); });
+  T('领奖后顶栏金币更新', function(){
+    return doc.getElementById('statCoins').textContent === String(Store.state.coins) ? true : '未同步'; });
+
+  /* ---------- 6.8 布局与触控尺寸 ---------- */
+  function layout(name){
+    var de = doc.documentElement, vw = win.innerWidth, vh = win.innerHeight;
+    var over = de.scrollWidth - vw;
+    var scr = doc.getElementById('sc' + name.charAt(0).toUpperCase() + name.slice(1));
+    var r = scr ? scr.getBoundingClientRect() : null;
+    return { vw: vw, vh: vh, overX: over, screenW: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 };
+  }
+  var screens = ['home','catalog','dict','levels','pet','checkin','about'];
+  P('');
+  P('--- 布局检查 @ ' + win.innerWidth + 'x' + win.innerHeight + ' ---');
+  for (var si = 0; si < screens.length; si++){
+    (function(nm){
+      App.go(nm, null, false);
+      var l = layout(nm);
+      P('  ' + nm.padEnd(9) + ' 宽' + l.vw + 'x' + l.vh + '  横向溢出=' + l.overX + 'px');
+      T('「' + nm + '」无横向溢出', function(){ return l.overX <= 1 ? true : (l.overX + 'px 溢出'); });
+    })(screens[si]);
+  }
+  App.go('catalog', null, false); await wait(40);
+  doc.querySelector('#semList .card').click(); await wait(40);
+  doc.querySelector('#unitList .lsn').click(); await wait(60);
+  doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(800);
+  (function(){
+    var st = doc.getElementById('stage').getBoundingClientRect();
+    var vh = win.innerHeight;
+    var wonWrap = doc.querySelector('.stage-wrap').getBoundingClientRect();
+    P('  练字台 ' + Math.round(st.width) + 'x' + Math.round(st.height) + '  适配高度=' + (st.height <= vh - 40) +
+      '  侧栏宽=' + Math.round(doc.querySelector('.stage-side').getBoundingClientRect().width) +
+      '  横向溢出=' + (doc.documentElement.scrollWidth - win.innerWidth));
+    T('练字台为正方形且不超出视口', function(){
+      return (Math.abs(st.width - st.height) < 2 && st.height <= vh - 40) ? true :
+        (Math.round(st.width) + 'x' + Math.round(st.height) + ' vh=' + vh); });
+    var big = [];
+    ['btnUndo','btnHint','btnDemo','btnNextChar'].forEach(function(id){
+      var h = doc.getElementById(id).getBoundingClientRect().height;
+      if (h < 38) big.push(id + '=' + Math.round(h));
+    });
+    T('练字页按钮高度足够（≥38px）', function(){ return big.length === 0 ? true : big.join(','); });
+    var tabs = doc.querySelectorAll('.prac-tabs .tab')[0].getBoundingClientRect();
+    T('模式切换按钮可点（≥32px）', function(){ return tabs.height >= 32 ? true : Math.round(tabs.height); });
+    var pct = doc.getElementById('stageSvg').getBoundingClientRect();
+    var stageEl = doc.getElementById('stage');
+    T('米字格 SVG 已铺满画板', function(){
+      return Math.abs(pct.width - stageEl.clientWidth) < 2 ? true :
+        (Math.round(pct.width) + ' vs ' + stageEl.clientWidth); });
+  })();
+  App.go('home', null, false); await wait(40);
+  (function(){
+    var tiles = doc.querySelectorAll('.tile'), small = [];
+    for (var i = 0; i < tiles.length; i++){
+      var r = tiles[i].getBoundingClientRect();
+      if (r.height < 44 || r.width < 44) small.push(i + ':' + Math.round(r.width) + 'x' + Math.round(r.height));
+    }
+    P('  首页功能块 ' + tiles.length + ' 个');
+    T('首页功能块尺寸适合儿童点击（≥44px）', function(){ return small.length === 0 ? true : small.join(','); });
+  })();
+
+  /* ---------- 6.9 颜色与画布像素 ---------- */
+  T('手写笔迹确实画到了画布上', function(){
+    var cv = p5.cvs, c2 = cv.getContext('2d');
+    var d = c2.getImageData(0, 0, cv.width, cv.height).data, n = 0;
+    for (var i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
+    return n > 400 ? true : ('不透明像素=' + n); });
+  App.go('catalog', null, false); await wait(40);
+  doc.querySelector('#semList .card').click(); await wait(40);
+  doc.querySelector('#unitList .lsn').click(); await wait(60);
+  doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(2600);   // 等自动演示结束
+  function lastGlyph(){
+    var gs = doc.querySelectorAll('#stageSvg g[transform]');
+    return gs[gs.length - 1];
+  }
+  T('主按钮为主题蓝 #4FC3F7', function(){
+    var bg = win.getComputedStyle(doc.querySelector('.btn-main')).backgroundColor;
+    return bg === 'rgb(79, 195, 247)' ? true : bg; });
+  T('米字格线为淡红 #F3B0AE', function(){
+    var st = win.getComputedStyle(doc.querySelector('#stageSvg rect')).stroke;
+    return st === 'rgb(243, 176, 174)' ? true : st; });
+  doc.querySelectorAll('.prac-tabs .tab')[0].click(); await wait(80);   // 切回描红模式
+  T('描红底字为浅灰：比纸深、比墨迹浅', function(){
+    var ps = lastGlyph().querySelectorAll('path'), ok = 0, bad = [];
+    for (var i = 0; i < ps.length; i++){
+      var f = win.getComputedStyle(ps[i]).fill, m = f.match(/\d+/g);
+      if (!m) { bad.push(f); continue; }
+      var v = (+m[0] + +m[1] + +m[2]) / 3;
+      if (v > 150 && v < 232) ok++; else bad.push(f + '(亮度' + Math.round(v) + ')');
+    }
+    return (ok === ps.length && ok > 0) ? true : (ok + '/' + ps.length + ' 合格, 异常=' + bad.slice(0, 2));
+  });
+  /* 图标细节线条（返回箭头/声音波纹/放大镜手柄等）曾因缺描边色而整条不可见。
+     <use> 的 shadow tree 不匹配文档选择器，所以必须查标记里的属性，并把图标真实画出来数像素。 */
+  await (async function(){
+    var stroked = ['i-search','i-flag','i-cal','i-back','i-sound','i-undo','i-bulb','i-lock'];
+    T('所有描边细节都带了 stroke 属性', function(){
+      var bad = [];
+      stroked.forEach(function(sid){
+        var els = doc.querySelectorAll('#' + sid + ' [stroke-width]');
+        for (var i = 0; i < els.length; i++)
+          if (!els[i].getAttribute('stroke')) bad.push(sid);
+      });
+      return bad.length === 0 ? true : ('缺: ' + bad.join(','));
+    });
+    T('返回按钮至少有一条描边路径', function(){
+      return doc.querySelectorAll('#i-back [stroke-width][stroke]').length >= 1 ? true : '返回箭头没有描边路径'; });
+    T('声音图标至少有一条波纹描边路径', function(){
+      return doc.querySelectorAll('#i-sound [stroke-width][stroke]').length >= 1 ? true : '声音波纹没有描边路径'; });
+    // 改标记时最容易踩的坑：把自闭合 `/>` 改成 `>`，后续兄弟元素会被吞进前一个元素里
+    T('每个图标的子元素数量正确（未被吞并）', function(){
+      var expect = { 'i-star':1,'i-coin':2,'i-book':2,'i-search':2,'i-flag':2,'i-pet':5,'i-cal':4,
+                     'i-back':1,'i-sound':2,'i-undo':2,'i-bulb':2,'i-lock':2,'i-egg':1 };
+      var bad = [];
+      Object.keys(expect).forEach(function(sid){
+        var el = doc.getElementById(sid);
+        if (!el) { bad.push(sid + ':缺'); return; }
+        if (el.children.length !== expect[sid]) bad.push(sid + '=' + el.children.length + '(' + expect[sid] + ')');
+      });
+      return bad.length === 0 ? true : bad.join(' ');
+    });
+  })();
+  (function(){
+    var ch = CUR['1a'].units[0].lessons[0].chars[0];
+    var cv = doc.getElementById('ink'), r = cv.getBoundingClientRect();
+    var med = win.HZ.medianScreen(win.HZ.dataOf(ch).m[0]);
+    function ev(t, vb){ cv.dispatchEvent(new win.PointerEvent(t, { bubbles: true, cancelable: true,
+      pointerId: 11, pointerType: 'touch', isPrimary: true,
+      clientX: r.left + vb[0] / 1024 * r.width, clientY: r.top + vb[1] / 1024 * r.height })); }
+    ev('pointerdown', med[0]);
+    for (var i = 1; i < med.length; i++) ev('pointermove', med[i]);
+    ev('pointerup', med[med.length - 1]);
+  })();
+  T('写对第一笔后该笔渲染为墨色 #2F2F3D', function(){
+    var ps = lastGlyph().querySelectorAll('path');
+    var inks = 0;
+    for (var i = 0; i < ps.length; i++)
+      if (win.getComputedStyle(ps[i]).fill === 'rgb(47, 47, 61)') inks++;
+    return inks > 0 ? true : '没有墨色笔画'; });
+  App.go('pet', null, false); await wait(200);
+  T('宠物图片已真实解码', function(){
+    var im = doc.getElementById('petImg');
+    return (im.complete && im.naturalWidth > 0) ? true : ('naturalWidth=' + im.naturalWidth); });
+  App.go('home', null, false); await wait(200);
+  T('首页宠物头像已解码', function(){
+    var im = doc.getElementById('heroPetImg');
+    return (im.complete && im.naturalWidth > 0) ? true : ('naturalWidth=' + im.naturalWidth); });
+  T('顶栏为白色渐变底', function(){
+    var st = win.getComputedStyle(doc.getElementById('topbar'));
+    return /gradient/.test(st.backgroundImage) ? true : st.backgroundImage; });
+
+  /* ---------- 6.95 hidden 属性必须真的隐藏（曾因 CSS display 覆盖而永久显形） ---------- */
+  function dispOf(id){
+    var el = doc.getElementById(id);
+    return el ? win.getComputedStyle(el).display : 'missing';
+  }
+  function visRect(id){                       // 是否真的占了可见面积
+    var el = doc.getElementById(id); if (!el) return -1;
+    var r = el.getBoundingClientRect();
+    return (win.getComputedStyle(el).display === 'none' || r.width === 0) ? 0 : Math.round(r.width * r.height);
+  }
+  var hiddenIds = ['loading','modalMask','radicalPanel','unitList','lessonList','btnBack'];
+  App.go('home', null, false); await wait(120);
+  hiddenIds.forEach(function(id){
+    (function(id){
+      var el = doc.getElementById(id);
+      el.hidden = true;
+      T('[hidden] 真的隐藏 ' + id, function(){
+        return dispOf(id) === 'none' ? true : ('display=' + dispOf(id)); });
+    })(id);
+  });
+  T('加载遮罩不再常驻覆盖', function(){ return visRect('loading') === 0 ? true : ('面积=' + visRect('loading')); });
+  T('弹窗蒙层不再常驻覆盖', function(){ return visRect('modalMask') === 0 ? true : ('面积=' + visRect('modalMask')); });
+  App.go('catalog', null, false); await wait(80);
+  T('选册页「单元列表」已被隐藏', function(){ return visRect('unitList') === 0 ? true : '仍可见'; });
+  App.go('dict', null, false); await wait(80);
+  doc.querySelector('[data-dtab="pinyin"]').click(); await wait(60);
+  T('字典页（拼音模式）「部首面板」已隐藏', function(){ return visRect('radicalPanel') === 0 ? true : '仍可见'; });
+  doc.querySelector('[data-dtab="radical"]').click(); await wait(60);
+  T('切到部首模式后面板出现', function(){ return visRect('radicalPanel') > 0 ? true : '没出现'; });
+  doc.querySelector('[data-dtab="pinyin"]').click(); await wait(60);
+  T('切回拼音模式后面板收起', function(){ return visRect('radicalPanel') === 0 ? true : '没收起'; });
+  App.go('home', null, false); await wait(80);
+  T('首页「返回」按钮已被隐藏', function(){ return visRect('btnBack') === 0 ? true : '仍可见'; });
+  // 首页应看到真实内容（而不是被遮罩挡住）
+  T('首页内容真实可见', function(){
+    var t = doc.querySelector('.tile'), r = t.getBoundingClientRect();
+    var top = doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return (top === t || t.contains(top)) ? true : ('被 ' + (top && (top.id || top.className)) + ' 遮挡'); });
+  doc.getElementById('unitList').hidden = false; doc.getElementById('lessonList').hidden = false;
+  doc.getElementById('radicalPanel').hidden = false;
+
+  /* ---------- 6.96 墨迹与描红对齐 / 演示速度 / 弹窗关闭 ---------- */
+  P('');
+  P('--- 手写练习三项修复 ---');
+  var PRP = null, _cp = HZ.createPractice;
+  HZ.createPractice = function (cfg) { PRP = _cp(cfg); return PRP; };
+  App.enterPractice(['春', '天'], 0, {}); await wait(3200);
+  T('进入练字页并建好字帖', function(){ return !!PRP ? true : '没建出练习对象'; });
+
+  (function(){
+    var cv = doc.getElementById('ink'), svg = doc.getElementById('stageSvg');
+    var dS = HZ.dataOf('春');
+    var tgt = HZ.medianScreen(dS.m[0])[0];               // 描红第一笔的起点（viewBox 坐标）
+    var pt = svg.createSVGPoint(); pt.x = tgt[0]; pt.y = tgt[1];
+    var scr = pt.matrixTransform(svg.getScreenCTM());     // 它在屏幕上的位置
+    function pe(type, x, y){
+      cv.dispatchEvent(new win.PointerEvent(type, { pointerId: 7, clientX: x, clientY: y,
+        bubbles: true, cancelable: true, isPrimary: true, pointerType: 'touch' }));
+    }
+    pe('pointerdown', scr.x, scr.y);
+    for (var i = 1; i <= 8; i++) pe('pointermove', scr.x + i * 4, scr.y + i * 1.2);
+    pe('pointerup', scr.x + 32, scr.y + 9.6);
+    var got = PRP.inkStrokes[0] && PRP.inkStrokes[0].vb[0];
+    var err = got ? Math.sqrt(Math.pow(got[0] - tgt[0], 2) + Math.pow(got[1] - tgt[1], 2)) : 9999;
+    T('手指落在描红笔画上，笔迹坐标与描红重合', function(){
+      return err < 8 ? true : ('偏差 ' + err.toFixed(1) + '（1024 制，>8 即错位）'); });
+  })();
+  await wait(150);
+  (function(){
+    var cv = doc.getElementById('ink');
+    var d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    var n = 0, sx = 0, sy = 0;
+    for (var y = 0; y < cv.height; y += 2) for (var x = 0; x < cv.width; x += 2) {
+      if (d[(y * cv.width + x) * 4 + 3] > 40) { n++; sx += x; sy += y; }
+    }
+    var rx = n ? (sx / n) / cv.width : 0, ry = n ? (sy / n) / cv.height : 0;
+    T('墨迹落在格子内、不缩在左上角', function(){
+      // 这一笔画在字的上半部，所以只要求它没被压到角落
+      return (n > 50 && rx > 0.25 && ry > 0.15 && rx < 0.9 && ry < 0.9) ? true :
+        ('重心=(' + rx.toFixed(2) + ',' + ry.toFixed(2) + ') 像素=' + n); });
+  })();
+
+  T('默认演示速度 = 正常档', function(){ return HZ.getSpeed() === 1 ? true : HZ.getSpeed(); });
+
+  /* ---------- 笔顺方向：中线不得被 y 翻转两次（「上」曾整字倒着写） ---------- */
+  await (async () => {
+    await HZ.loadChar('上');
+    var sv = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    sv.setAttribute('viewBox', '0 0 1024 1024'); sv.setAttribute('width', '400'); sv.setAttribute('height', '400');
+    doc.body.appendChild(sv);
+    function view(el, x, y) { var p = sv.createSVGPoint(); p.x = x; p.y = y; var m = el.getCTM(); return m ? p.matrixTransform(m) : null; }
+    var got = [];
+    for (var i = 0; i < 3; i++) {
+      var g2 = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g2.setAttribute('transform', 'translate(0,' + HZ.BASE + ') scale(1,-1)');
+      sv.appendChild(g2);
+      HZ.animateStroke(g2, '上', i, { dur: 6000 });
+      await wait(30);
+      var ps2 = g2.getElementsByTagName('path'), brush = null;
+      for (var k = 0; k < ps2.length; k++) if (ps2[k].getAttribute('stroke-width') === '300') brush = ps2[k];
+      var dd = brush.getAttribute('d').replace(/^M/, '').split(' L').map(function (s) { return s.trim().split(/\s+/).map(Number); });
+      got.push([view(brush, dd[0][0], dd[0][1]), view(brush, dd[dd.length - 1][0], dd[dd.length - 1][1])]);
+      if (g2.parentNode) g2.parentNode.removeChild(g2);
+    }
+    if (sv.parentNode) sv.parentNode.removeChild(sv);
+    var s1 = got[0], s2 = got[1], s3 = got[2];
+    T('「上」第1笔竖：起于上、终于下（未上下颠倒）', function () {
+      var dy = s1[1].y - s1[0].y;
+      return dy > 150 ? true : 'dy=' + dy.toFixed(0) + '（应为正且明显向下）';
+    });
+    T('「上」第2笔短横在中、第3笔长横在最下', function () {
+      return (s3[0].y > s2[0].y + 40 && s2[0].y > s1[0].y + 40) ? true :
+        ('y: 竖起' + s1[0].y.toFixed(0) + ' 短横' + s2[0].y.toFixed(0) + ' 长横' + s3[0].y.toFixed(0));
+    });
+    T('三笔均自左向右或自上而下（无反向笔画）', function () {
+      var ok = s1[1].y > s1[0].y && s2[1].x > s2[0].x && s3[1].x > s3[0].x;
+      return ok ? true : '存在反向笔画';
+    });
+  })();
+  async function strokeMs(){
+    var g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+    doc.getElementById('stageSvg').appendChild(g);
+    var t0 = win.performance.now();
+    await HZ.animateStroke(g, '春', 0, {});
+    var dt = win.performance.now() - t0;
+    if (g.parentNode) g.parentNode.removeChild(g);
+    return dt;
+  }
+  var tN = await strokeMs();
+  doc.querySelector('#speedSeg .sp[data-sp="1.9"]').click(); await wait(60);
+  var tS = await strokeMs();
+  doc.querySelector('#speedSeg .sp[data-sp="0.55"]').click(); await wait(60);
+  var tF = await strokeMs();
+  T('慢速档更慢、快速档更快', function(){
+    // headless 下动画由「时长 + 600ms 兜底」收尾，比较时扣掉这个常量
+    var a = tS - 600, b = tN - 600, c = tF - 600;
+    return (a > b * 1.4 && c < b * 0.8) ? true : ('慢=' + a.toFixed(0) + 'ms 正常=' + b.toFixed(0) + 'ms 快=' + c.toFixed(0) + 'ms');
+  });
+  doc.querySelector('#speedSeg .sp[data-sp="1.9"]').click(); await wait(300);
+  T('速度档位写进本机存档（下次打开还记得）', function(){
+    var raw = win.localStorage.getItem('hzpb.v1') || '';
+    return /"demoSpeed":1\.9/.test(raw) ? true : raw.slice(0, 140); });
+  T('只有一个档位按钮处于选中态', function(){
+    var on = doc.querySelectorAll('#speedSeg .sp.on');
+    return (on.length === 1 && on[0].getAttribute('data-sp') === '1.9') ? true : ('选中 ' + on.length + ' 个'); });
+  doc.querySelector('#speedSeg .sp[data-sp="1"]').click(); await wait(60);
+
+  (function(){
+    PRP.clearInk(true);
+    var d2 = HZ.dataOf('春');
+    for (var k = 0; k < d2.m.length; k++) PRP.judge(HZ.resample(HZ.medianScreen(d2.m[k]), 12));
+  })();
+  await wait(900);
+  T('写完一个字会弹出成绩框', function(){
+    return doc.getElementById('modalMask').hidden === false ? true : '没弹出'; });
+  var btnNext = doc.querySelector('#modalBox [data-act="next"]');
+  T('成绩框里有「下一个字」按钮', function(){ return !!btnNext ? true : '没有这个按钮'; });
+  if (btnNext) {
+    btnNext.click(); await wait(600);
+    var mask = doc.getElementById('modalMask');
+    T('点「下一个字」后弹窗立即关闭', function(){
+      return (mask.hidden === true && win.getComputedStyle(mask).display === 'none') ? true :
+        ('hidden=' + mask.hidden + ' display=' + win.getComputedStyle(mask).display); });
+    T('点「下一个字」后直接切到下一个字', function(){
+      var t = doc.getElementById('pracProgress').textContent;
+      return /第 2 \/ 2/.test(t) ? true : ('进度=' + t); });
+  }
+  HZ.createPractice = _cp;
+
+  /* ---------- 7. 宠物图片资源 ---------- */
+  var names = ['egg.png','egg-crack.png','shu-0.png','shu-1.png','shu-2.png','huo-0.png','huo-1.png','huo-2.png','shui-0.png','shui-1.png','shui-2.png'];
+  var bad = [];
+  await Promise.all(names.map(function(n){
+    return new Promise(function(res){
+      var im = new Image();
+      im.onload = function(){ if (!im.naturalWidth) bad.push(n); res(); };
+      im.onerror = function(){ bad.push(n); res(); };
+      im.src = 'assets/pets/' + n;
+    });
+  }));
+  T('11 张宠物图全部可加载', function(){ return bad.length === 0 ? true : ('缺: ' + bad.join(',')); });
+
+  T('页面无 JS 报错', function(){ return ERRS.length === 0 ? true : ERRS.slice(0, 3).join(' | '); });
+
+  P('');
+  P('===== 通过 ' + N + ' / 失败 ' + F + ' =====');
+  P('SMOKE_DONE');
+}
+run();
+</script>
+</body></html>

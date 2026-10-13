@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# 生字笔顺乐园 · 忽略规则
+# 原则：源码、数据、文档进仓库；依赖、构建产物、密钥、日志、临时文件一律排除。
+# 提交前 scripts/guard-secrets.sh 会再做一次实质校验（见 README「自动同步」）。
+# ---------------------------------------------------------------------------
+
+# ---------- 1. 依赖目录 ----------
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+site-packages/
+
+# ---------- 2. 构建产物与发布副本 ----------
+# dist/ 由「同步到发布目录.command」生成，是发布用的副本，不进仓库
+dist/
+build/
+out/
+*.tgz
+*.tar.gz
+*.zip
+
+# ---------- 3. 环境变量与密钥（安全红线） ----------
+.env
+.env.*
+!.env.example
+.envrc
+*.key
+*.pem
+*.p12
+*.pfx
+*.p8
+*.keystore
+*.jks
+*.crt
+*.cer
+# 私钥（无论叫什么名字，只要落在仓库里就拒绝）
+id_rsa
+id_rsa.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+id_ed25519
+id_ed25519.*
+*.ppk
+# 各类服务账号 / 凭据文件
+*credentials*.json
+*service-account*.json
+*.credentials
+secrets.*
+.secrets/
+.netrc
+.npmrc
+.pypirc
+config.local.*
+*.local.js
+*.local.json
+
+# ---------- 4. 日志 ----------
+*.log
+logs/
+log/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- 5. 编辑器与系统临时文件 ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*.swn
+*~
+*.tmp
+*.temp
+*.bak
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.sublime-workspace
+*.code-workspace
+
+# ---------- 6. 本地会话数据与发布元数据 ----------
+# .workbuddy/ 是本机会话与记忆，含本地路径，不进仓库
+.workbuddy/
+# .genie 文件记录本机发布应用 ID，属于个人元数据
+*.genie
+.applications/
+
+# ---------- 7. .build 目录 ----------
+# .build 里既有可复现的构建脚本，也有体积很大的上游原始数据。
+# 默认全部忽略，再把「脚本」和「手写的释义源」重新纳入版本控制。
+.build/*
+!.build/mean/
+!.build/*.py
+!.build/*.js

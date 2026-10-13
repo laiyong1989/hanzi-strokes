@@ -1,0 +1,12 @@
+本软件使用的第三方数据：
+
+1) 汉字笔顺轮廓与笔顺中心线数据：Make Me a Hanzi (https://github.com/skishore/makemeahanzi)
+   及 hanzi-writer-data。字形数据来自 Arphic Public License 授权的字体，可自由使用与再分发。
+   许可证全文：https://github.com/skishore/makemeahanzi/blob/master/ARPHICPL.TXT
+2) 拼音、部首、释义：Make Me a Hanzi dictionary.txt（同上，Arphic Public License / CC-BY-SA 4.0）。
+3) 教材写字表课程结构：依据统编版（部编版）小学语文教材《写字表》公开整理资料编排，
+   仅供学习参考；不同教材印次可能有少量差异，可在 data/curriculum.js 中自行调整。
+
+4) 宠物形象（assets/pets/*.png）：由 AI 图像生成模型按原创描述生成，为本项目原创素材，
+   用于呈现「宠物养成」玩法；形象不模仿、不复制任何已存在的卡通角色。
+5) 组词数据：从教材《写字表》配套公开资料中整理，仅供学习参考。
