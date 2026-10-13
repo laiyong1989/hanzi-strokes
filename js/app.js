@@ -229,6 +229,7 @@
     $('heroTip').textContent = st.hatched
       ? '把它养大吧：每天打卡 + 认真写字赚金币'
       : '连续打卡把蛋孵化出来，就有小伙伴陪你写字啦';
+    refreshSemPick();
   }
   function petImg(id, stage) {
     if (id === 'egg') return 'assets/pets/egg' + (stage >= 1 ? '-crack' : '') + '.png';
@@ -274,7 +275,95 @@
   /* ================= 首页 ================= */
   function renderHome() { refreshTop(); }
 
+  /* ---- 当前册次：首页显示 + 弹窗选择 ---- */
+  function refreshSemPick() {
+    var id = w.Store.currentSem();
+    $('semPickName').textContent = '当前：' + (SEM_LABEL[id] || id);
+  }
+  function openSemPick() {
+    var cur = w.Store.currentSem();
+    var html = '<h3>选择册次</h3><p>决定每天推荐哪些生字</p>' +
+      '<div class="sem-grid">' + w.Store.SEM_ORDER.map(function (k) {
+        return '<button class="sem-cell' + (k === cur ? ' on' : '') + '" data-act="' + k + '">' +
+          SEM_LABEL[k] + '</button>';
+      }).join('') + '</div>' +
+      '<div class="row-actions"><button class="btn btn-ghost" data-act="">关闭</button></div>';
+    modal(html, function (act) {
+      closeModal();
+      if (!act || act === cur) return;
+      w.Store.setSetting('currentSem', act);
+      refreshSemPick();
+      lvSem = act; lvUserPicked = false;   // 闯关页跟随新册次
+      // 当前册的字帖预载跟着换
+      preloadSems();
+      // 切册后重渲染当前页；打卡页要按新册次重挑生字
+      CK.chars = [];
+      if (App.screen === 'checkin') renderCheckin();
+      else go(App.screen, App.params, false);
+      toast('已切到' + (SEM_LABEL[act] || act), 'good', 1500);
+    });
+  }
+  /* 字帖预载：当前册 + 上一册 */
+  function preloadSems() {
+    var order = w.Store.SEM_ORDER;
+    var cur = w.Store.currentSem();
+    var i = order.indexOf(cur);
+    var list = i > 0 ? [order[i], order[i - 1]] : [order[0]];
+    list.forEach(function (sid) { w.HZ.loadSem(sid); });
+  }
+
   /* ================= 按课文学习 ================= */
+  /* 课名显示：家长自定义名优先，没有则用原课名 */
+  function lessonName(L) { return w.Store.customName(L.id) || L.name; }
+  /* 把文本转义后再插进 innerHTML，避免自定义名里的尖括号破坏结构 */
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  /* 字 -> 课 id。whereIs() 只给出课名，拿不到自定义名要用的 key，这里自己建一份索引 */
+  var CHAR_LESSON_ID = null;
+  function lessonIdOfChar(ch) {
+    if (!CHAR_LESSON_ID) {
+      CHAR_LESSON_ID = {};
+      for (var i = 0; i < w.Store.SEM_ORDER.length; i++) {
+        var sem = CUR[w.Store.SEM_ORDER[i]];
+        if (!sem) continue;
+        sem.units.forEach(function (u) {
+          u.lessons.forEach(function (L) {
+            L.chars.forEach(function (c) { if (!CHAR_LESSON_ID[c]) CHAR_LESSON_ID[c] = L.id; });
+          });
+        });
+      }
+    }
+    return CHAR_LESSON_ID[ch] || '';
+  }
+  /* 行内改名：把课名那一格换成输入框 + 确定/取消（不用 window.prompt） */
+  function startRename(btn) {
+    var id = btn.getAttribute('data-rename');
+    // 铅笔按钮与 .lsn-main 是兄弟节点，先找到所在的那一课，再取课名格
+    var row = btn.closest ? btn.closest('.lsn') : null;
+    var cell = row ? row.querySelector('.lsn-main') : null;
+    if (!cell) return;
+    var cur = cell.getAttribute('data-lname') || '';
+    cell.innerHTML = '<span class="lsn-edit">' +
+      '<input class="lsn-input" type="text" maxlength="24" value="' + escHtml(cur) + '" placeholder="给这节课起个名字">' +
+      '<button class="lsn-ok" data-rename-ok="' + id + '">确定</button>' +
+      '<button class="lsn-cancel" data-rename-cancel="1">取消</button></span>';
+    var inp = cell.querySelector('.lsn-input');
+    if (inp) {
+      inp.focus();
+      if (inp.select) inp.select();
+      inp.onkeydown = function (e) {
+        if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); finishRename(id, inp.value); }
+      };
+    }
+  }
+  function finishRename(id, val) {
+    w.Store.setCustomName(id, val);
+    renderCatalog(App.catState);
+    toast(w.Store.customName(id) ? '已改名为「' + w.Store.customName(id) + '」' : '已恢复原课名', 'good', 1500);
+  }
+
   App.catState = { sem: null, unit: null };
   function renderCatalog(st) {
     App.catState = st = st || { sem: null, unit: null };
@@ -310,10 +399,12 @@
             var d = w.Store.lessonDoneChars(L), all = L.chars.length;
             var ls = w.Store.lessonState(L.id);
             return '<button class="lsn" data-unit="' + i + '" data-lesson="' + j + '">' +
-              '<span class="lsn-main"><span class="lsn-n">' + L.name + '</span>' +
+              '<span class="lsn-main" data-lname="' + escHtml(lessonName(L)) + '">' +
+              '<span class="lsn-n">' + escHtml(lessonName(L)) + '</span>' +
               '<span class="lsn-c">' + L.chars.join(' ') + '</span></span>' +
               (ls && ls.stars ? starRow(ls.stars) : '') +
-              '<span class="lsn-done">' + (d >= all ? '已完成' : d + '/' + all) + '</span></button>';
+              '<span class="lsn-done">' + (d >= all ? '已完成' : d + '/' + all) + '</span>' +
+              '<span class="lsn-editbtn" data-rename="' + L.id + '" title="给这节课起个名字">✎</span></button>';
           }).join('') + '</div></div>';
       }).join('');
       return;
@@ -322,9 +413,11 @@
     lessonList.innerHTML = u.lessons.map(function (L, j) {
       var d = w.Store.lessonDoneChars(L), all = L.chars.length;
       return '<button class="lsn" data-lesson="' + j + '">' +
-        '<span class="lsn-main"><span class="lsn-n">' + L.name + '</span>' +
+        '<span class="lsn-main" data-lname="' + escHtml(lessonName(L)) + '">' +
+        '<span class="lsn-n">' + escHtml(lessonName(L)) + '</span>' +
         '<span class="lsn-c">' + L.chars.join(' ') + '</span></span>' +
-        '<span class="lsn-done">' + d + '/' + all + '</span></button>';
+        '<span class="lsn-done">' + d + '/' + all + '</span>' +
+        '<span class="lsn-editbtn" data-rename="' + L.id + '" title="给这节课起个名字">✎</span></button>';
     }).join('');
   }
 
@@ -336,7 +429,7 @@
     Viewing = { lesson: L, sem: p.sem };
     var d = w.Store.lessonDoneChars(L), all = L.chars.length;
     var ls = w.Store.lessonState(L.id);
-    $('charHead').innerHTML = '<h2>' + L.name + '</h2>' +
+    $('charHead').innerHTML = '<h2>' + escHtml(lessonName(L)) + '</h2>' +
       '<p>' + sem.name + ' · ' + L.chars.length + ' 个生字 · 已写 ' + d + '/' + all +
       '　' + (ls && ls.stars ? '历史最好成绩：' + '★'.repeat(ls.stars) : '') + '</p>';
     $('charGrid').innerHTML = L.chars.map(function (c, i) {
@@ -460,7 +553,8 @@
       (en ? '<br><b>English</b> ' + en + (ipaOf(ch) ? ' ' + ipaOf(ch) : '') : '') +
       '<br><b>部首</b> ' + (d.r || '—') + '　<b>总笔画</b> ' + (d.s || total) +
       (wordBlock(d, 3) ? '<div class="wd-title">组词</div>' + wordBlock(d, 3) : '') +
-      (w2 ? '<div class="wd-from">出自 ' + (SEM_LABEL[w2.sem] || '') + ' ' + w2.lesson + '</div>' : '');
+      (w2 ? '<div class="wd-from">出自 ' + (SEM_LABEL[w2.sem] || '') + ' ' +
+        escHtml(w.Store.customName(lessonIdOfChar(ch)) || w2.lesson) + '</div>' : '');
     autoSpeak(ch);                       // 切到这个字，自动读一次（同一个字不会重复读）
     if (PR.p && PR.p.index() === 0) {
       // 首次进入自动演示，帮助孩子看清笔顺
@@ -769,7 +863,9 @@
         ? '<span class="dr-word">' + d.w[0] +
           ((d.wm && d.wm[d.w[0]]) ? '<i>' + d.wm[d.w[0]] + '</i>' : '') + '</span>'
         : '') +
-      (wp ? '<span class="dr-tag">' + (SEM_LABEL[wp.sem] || '').replace('年级', '') + '</span>' : '') +
+      (wp ? '<span class="dr-tag">' + (SEM_LABEL[wp.sem] || '').replace('年级', '') +
+        (w.Store.customName(lessonIdOfChar(ch)) ? ' · ' + escHtml(w.Store.customName(lessonIdOfChar(ch))) : '') +
+        '</span>' : '') +
       (st ? '<span class="dr-sub">★' + st.s + '</span>' : '') + '</button>';
   }
   function wireDict() {
@@ -796,9 +892,12 @@
   }
 
   /* ================= 闯关 ================= */
-  var lvSem = '1a';
+  var lvSem = '1a', lvUserPicked = false;   // 用户是否手动切过闯关册
   function renderLevels(p) {
+    // 打开闯关页时默认定位到当前册（若已是当前册则保持不动）
     if (p && p.sem) lvSem = p.sem;
+    else if (lvSem !== w.Store.currentSem() && !lvUserPicked) lvSem = w.Store.currentSem();
+    if (!CUR[lvSem]) lvSem = w.Store.currentSem();
     $('lvSemSeg').innerHTML = w.Store.SEM_ORDER.map(function (k) {
       return '<button class="seg-btn' + (k === lvSem ? ' on' : '') + '" data-lvsem="' + k + '">' + SEM_LABEL[k] + '</button>';
     }).join('');
@@ -892,7 +991,16 @@
         '" data-ck="' + ch + '"><span class="cell-badge">' + (done ? '✓' : (i + 1)) + '</span>' +
         '<span style="font-family:Kaiti SC,KaiTi,serif;font-size:30px">' + ch + '</span></button>';
     }).join('');
-    w.Store.SEM_ORDER.slice(0, 4).forEach(function (sid) { w.HZ.loadSem(sid).then(function () {
+    // 预载「当前册 + 上一册」的字帖（推字只来自当前册及之前的册）。
+    // 若当前册的字已全部写满，推到的字可能来自更早的册，那些册也要补上，
+    // 否则 staticSvg 只能画文字兜底、看不到笔顺。
+    var needSems = w.Store.semBackOrder().slice(0, 2);
+    pick.forEach(function (ch) {
+      var where = w.HZ.whereIs(ch);          // semOf 未对外暴露，用 whereIs 拿同一份索引
+      var sid = where && where.sem;
+      if (sid && needSems.indexOf(sid) < 0) needSems.push(sid);
+    });
+    needSems.forEach(function (sid) { w.HZ.loadSem(sid).then(function () {
       var cells = $('ckGrid').children;
       for (var i = 0; i < pick.length && i < cells.length; i++) {
         var cell = cells[i];
@@ -1010,6 +1118,17 @@
         renderCatalog(v ? { sem: v, unit: null } : { sem: null, unit: null });
         return;
       }
+      // 改名相关按钮要先判断，否则会落到下面的 data-lesson 跳课
+      var rnOk = e.target.closest('[data-rename-ok]');
+      if (rnOk) {
+        var box = rnOk.parentNode.querySelector('.lsn-input');
+        finishRename(rnOk.getAttribute('data-rename-ok'), box ? box.value : '');
+        return;
+      }
+      var rnCancel = e.target.closest('[data-rename-cancel]');
+      if (rnCancel) { renderCatalog(App.catState); return; }
+      var rn = e.target.closest('[data-rename]');
+      if (rn && $('scCatalog').classList.contains('on')) { startRename(rn); return; }
       var lsn = e.target.closest('[data-lesson]');
       if (lsn && $('scCatalog').classList.contains('on')) {
         var st2 = App.catState;
@@ -1047,9 +1166,10 @@
         return;
       }
       var lvs = e.target.closest('[data-lvsem]');
-      if (lvs && $('scLevels').classList.contains('on')) { lvSem = lvs.getAttribute('data-lvsem'); renderLevels(); return; }
+      if (lvs && $('scLevels').classList.contains('on')) { lvSem = lvs.getAttribute('data-lvsem'); lvUserPicked = true; renderLevels(); return; }
     });
     $('btnBack').onclick = back;
+    $('btnSemPick').onclick = function () { SFX.tap(); openSemPick(); };
     $('btnSound').onclick = function () {
       var s = w.Store.state.settings;
       s.sound = !s.sound; w.Store.save(); refreshTop();
@@ -1081,8 +1201,8 @@
     wire();
     renderHome();
     show('home');
-    // 预加载一年级字帖，加快首次进入
-    w.HZ.loadSem('1a');
+    // 预载当前册的字帖，加快首次进入
+    preloadSems();
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
     document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
   }

@@ -89,6 +89,17 @@ button{border:0;background:none;cursor:pointer;padding:0}
 .hero-txt{flex:1 1 auto;min-width:0;position:relative;z-index:1}
 .hero h1{margin:0 0 4px;font-size:22px;font-weight:900;letter-spacing:.3px}
 .hero p{margin:0 0 12px;font-size:14.5px;color:var(--ink-2)}
+/* 当前册次选择（首页） */
+.sem-pick{display:inline-flex;align-items:center;gap:6px;background:#F4FBFF;border:2px solid var(--blue);
+  color:var(--ink);border-radius:999px;padding:7px 15px;font-weight:800;font-size:14.5px;margin:0 0 12px}
+.sem-pick .ic{width:17px;height:17px;fill:var(--blue-d)}
+.sem-pick:active{transform:translateY(2px)}
+.sem-pick .caret{color:var(--blue-d);font-size:13px}
+.sem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
+.sem-cell{background:#F7F5F0;border:2px solid var(--line);border-radius:12px;padding:10px 6px;
+  font-weight:800;font-size:14px;color:var(--ink-2)}
+.sem-cell.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.sem-cell:active{transform:scale(.97)}
 .tile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .tile{background:#fff;border:2px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-s);
   padding:16px 14px;text-align:left;display:flex;flex-direction:column;gap:5px;align-items:flex-start;
@@ -132,6 +143,17 @@ button{border:0;background:none;cursor:pointer;padding:0}
 .lsn-n{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lsn-c{font-size:13px;color:var(--ink-2);font-weight:700;letter-spacing:3px;margin-top:2px}
 .lsn-done{color:var(--green-d);font-weight:900;font-size:13px;white-space:nowrap}
+/* 课名自定义：行内编辑 */
+.lsn-editbtn{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  font-size:15px;color:var(--gray-d);background:#F2F0EA}
+.lsn-editbtn:active{background:var(--line)}
+.lsn-edit{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lsn-input{flex:1 1 130px;min-width:0;border:2px solid var(--line);border-radius:9px;
+  padding:6px 9px;font-size:14px;font-weight:700;background:#fff}
+.lsn-input:focus{outline:none;border-color:var(--blue)}
+.lsn-ok,.lsn-cancel{border-radius:9px;padding:6px 11px;font-weight:800;font-size:13.5px;white-space:nowrap}
+.lsn-ok{background:var(--blue);color:#fff}
+.lsn-cancel{background:#F2F0EA;color:var(--ink-2)}
 
 /* ---------------- 字格 ---------------- */
 .lesson-head{background:#fff;border:2px solid var(--line);border-radius:var(--r-s);box-shadow:var(--sh-s);

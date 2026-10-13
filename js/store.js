@@ -27,7 +27,11 @@
       checkin: { days: [], today: '', todayChars: [], streak: 0, lastDay: '' },
       // demoSpeed：笔顺演示速度倍率（>1 更慢）；autoRead：切到生字自动朗读一次
       // voice：朗读发音 zh=国语（普通话） yue=粤语 en=英语（读这个字的英文单词）
-      settings: { sound: true, demoSpeed: 1, autoRead: true, voice: 'zh' },
+      // currentSem：当前册次（默认一年级上册）；customNames：家长自定义的课名
+      settings: {
+        sound: true, demoSpeed: 1, autoRead: true, voice: 'zh',
+        currentSem: '1a', customNames: {}
+      },
       log: []
     };
   }
@@ -185,14 +189,63 @@
     return false;
   }
 
-  /* 今日应练的字：优先「练得少/星级低」的字，按册顺序取 */
+  /* ---------------- 设置 ---------------- */
+  /* 当前册次：旧存档没有这个字段时由 load() 补成 '1a'；非法值退回第一册 */
+  function currentSem() {
+    var id = S && S.settings ? S.settings.currentSem : '';
+    var cur = w.HZ_CURRICULUM;
+    if (id && cur && cur[id]) return id;
+    for (var i = 0; i < SEM_ORDER.length; i++) if (SEM_ORDER[i] === id) return id;
+    return SEM_ORDER[0];
+  }
+  /* 当前册 → 之前的册（越靠前越优先），用于「补足」时取字 */
+  function semBackOrder() {
+    var curSem = currentSem();
+    var idx = -1;
+    for (var i = 0; i < SEM_ORDER.length; i++) if (SEM_ORDER[i] === curSem) { idx = i; break; }
+    if (idx < 0) idx = 0;
+    var out = [];
+    for (var j = idx; j >= 0; j--) out.push(SEM_ORDER[j]);
+    return out;
+  }
+  /* 收集候选字时的册顺序。
+     当前册是第一册时「之前的册」为空，按 A4 退回原有行为（整册从头扫到 260 个候选）；
+     当前册靠后时只扫「当前册 + 之前的册」，不会推到高年级去。 */
+  function semScanOrder() {
+    var back = semBackOrder();
+    return (back.length === 1) ? SEM_ORDER : back;
+  }
+
+  /* 家长自定义课名：key 为 sem-unit-lesson（如 3a-0-1）；没设置/清空则返回空串 */
+  function customName(key) {
+    var m = S && S.settings ? S.settings.customNames : null;
+    if (!m || typeof m !== 'object') return '';
+    var v = m[key];
+    return (typeof v === 'string') ? v : '';
+  }
+  /* 设置自定义课名；传空串即删除该课的自定义名（恢复原课名） */
+  function setCustomName(key, val) {
+    if (!S || !S.settings || !key) return '';
+    if (!S.settings.customNames || typeof S.settings.customNames !== 'object') S.settings.customNames = {};
+    var v = (val === null || val === undefined) ? '' : String(val);
+    v = v.replace(/^\s+|\s+$/g, '').slice(0, 24);
+    if (v) S.settings.customNames[key] = v;
+    else delete S.settings.customNames[key];
+    save();
+    return v;
+  }
+
+  /* 今日应练的字：优先「练得少/星级低」的字，按册顺序取
+     册顺序由 semScanOrder() 决定：当前册优先，再往前面的册补；同一个字只取一次 */
   function pickDailyChars(n) {
     var cand = [];
     var cur = w.HZ_CURRICULUM;
     if (!cur) return [];
+    var order = semScanOrder();
+    var seen = {};
     outer:
-    for (var si = 0; si < SEM_ORDER.length; si++) {
-      var sem = cur[SEM_ORDER[si]];
+    for (var si = 0; si < order.length; si++) {
+      var sem = cur[order[si]];
       if (!sem) continue;
       for (var ui = 0; ui < sem.units.length; ui++) {
         var u = sem.units[ui];
@@ -200,6 +253,9 @@
           var L = u.lessons[li];
           for (var ci = 0; ci < L.chars.length; ci++) {
             var ch = L.chars[ci];
+            // 同一个字在多册出现时只保留第一次（当前册优先）
+            if (seen[ch]) continue;
+            seen[ch] = 1;
             var st = S.chars[ch];
             if (!st || st.s < 3) cand.push({ ch: ch, w: st ? (3 - st.s) * 10 + Math.min(9, st.n) : 60, lesson: L });
             if (cand.length > 260) break outer;
@@ -210,17 +266,24 @@
     cand.sort(function (a, b) { return b.w - a.w; });
     var out = [];
     for (var k = 0; k < cand.length && out.length < n; k++) out.push(cand[k]);
-    // 不足时用最常见的字补足
+    // 不足时用「当前册 + 之前的册」的全部生字补足（不再写死 1a/1b）
     if (out.length < n) {
-      var first = cur['1a'] || cur['1b'];
-      var extra = [];
-      for (var q = 0; q < first.units.length; q++)
-        for (var l2 = 0; l2 < first.units[q].lessons.length; l2++)
-          for (var c2 = 0; c2 < first.units[q].lessons[l2].chars.length; c2++) extra.push(first.units[q].lessons[l2].chars[c2]);
-      for (var m = 0; m < extra.length && out.length < n; m++) {
-        var dup = false;
-        for (var z = 0; z < out.length; z++) if (out[z].ch === extra[m]) dup = true;
-        if (!dup) out.push({ ch: extra[m], w: 1, lesson: null });
+      var got = {};
+      for (var g = 0; g < out.length; g++) got[out[g].ch] = 1;
+      var back = semBackOrder();
+      for (var bi = 0; bi < back.length && out.length < n; bi++) {
+        var fb = cur[back[bi]];
+        if (!fb) continue;
+        for (var bu = 0; bu < fb.units.length && out.length < n; bu++) {
+          for (var bl = 0; bl < fb.units[bu].lessons.length && out.length < n; bl++) {
+            for (var bc = 0; bc < fb.units[bu].lessons[bl].chars.length && out.length < n; bc++) {
+              var ech = fb.units[bu].lessons[bl].chars[bc];
+              if (got[ech]) continue;
+              got[ech] = 1;
+              out.push({ ch: ech, w: 1, lesson: null });
+            }
+          }
+        }
       }
     }
     return out.slice(0, n);
@@ -239,6 +302,8 @@
     markLesson: markLesson, lessonState: lessonState, lessonDoneChars: lessonDoneChars,
     getSetting: function (k) { return S && S.settings ? S.settings[k] : undefined; },
     setSetting: function (k, v) { if (S && S.settings) { S.settings[k] = v; save(); } return v; },
+    currentSem: currentSem, semBackOrder: semBackOrder,
+    customName: customName, setCustomName: setCustomName,
     pet: pet, petKind: petKind, petStageName: petStageName, petNeed: petNeed,
     feed: feed, switchPet: switchPet,
     checkin: checkin, checkinAddChar: checkinAddChar, checkinClaim: checkinClaim, checkinDoneToday: checkinDoneToday,

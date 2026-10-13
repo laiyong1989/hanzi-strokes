@@ -348,6 +348,83 @@ function T(name, fn) {
     return b && (D['洪'].w.indexOf(b.textContent) >= 0) ? true : (b ? b.textContent : '无');
   });
 
+  console.log('\n--- 8. 第 1 层：年级册次设置 + 分组自定义名 ---');
+  const Store = win.Store, App = win.App;
+  const SEM = win.Store.SEM_ORDER;
+  // 某个字出现在哪几册（用于判断推字是否越过了当前册）
+  const semsOf = function (ch) {
+    const out = [];
+    SEM.forEach(function (s) {
+      if (!C[s]) return;
+      C[s].units.forEach(function (u) {
+        u.lessons.forEach(function (L) {
+          if (L.chars.indexOf(ch) >= 0 && out.indexOf(s) < 0) out.push(s);
+        });
+      });
+    });
+    return out;
+  };
+  const si = function (s) { return SEM.indexOf(s); };
+
+  T('默认当前册是一年级上册', () => Store.currentSem() === '1a' ? true : Store.currentSem());
+
+  T('旧存档（缺册次字段）仍只推一年级的字', () => {
+    const keep = Store.state.settings.currentSem;
+    delete Store.state.settings.currentSem;              // 模拟老用户存档
+    const picked = Store.pickDailyChars(5).map(x => x.ch);
+    Store.state.settings.currentSem = keep;
+    const bad = picked.filter(ch => semsOf(ch).indexOf('1a') < 0);
+    return bad.length === 0 ? true : ('混入了非一年级的字：' + bad.join(''));
+  });
+
+  T('推荐字之间不重复', () => {
+    Store.setSetting('currentSem', '1a');
+    const p = Store.pickDailyChars(5).map(x => x.ch);
+    return new Set(p).size === p.length ? true : ('有重复：' + p.join(''));
+  });
+
+  T('切到三年级上册后，推字都来自三年级上册或更早', () => {
+    Store.setSetting('currentSem', '3a');
+    const p = Store.pickDailyChars(5).map(x => x.ch);
+    const bad = p.filter(ch => semsOf(ch).every(s => si(s) > si('3a')));
+    return bad.length === 0 ? true : ('来自更晚的册：' + bad.join(''));
+  });
+
+  T('推字范围确实随册次变化', () => {
+    Store.setSetting('currentSem', '1a');
+    const a = Store.pickDailyChars(5).map(x => x.ch).join('');
+    Store.setSetting('currentSem', '6b');
+    const b = Store.pickDailyChars(5).map(x => x.ch).join('');
+    Store.setSetting('currentSem', '1a');
+    return a !== b ? true : ('两次结果相同：' + a);
+  });
+
+  T('首页有当前册次入口', () => doc.getElementById('btnSemPick') ? true : '缺 btnSemPick');
+
+  T('自定义课名可写入也可清除', () => {
+    Store.setCustomName('3a-0-1', '我的第一小组');
+    const got = Store.customName('3a-0-1');
+    Store.setCustomName('3a-0-1', '');
+    return (got === '我的第一小组' && !Store.customName('3a-0-1'))
+      ? true : ('写入读到=' + got + ' 清除后=' + Store.customName('3a-0-1'));
+  });
+
+  // 目录页课名：先渲染再断言（本文件的 T 是同步断言）
+  Store.setCustomName('3a-0-1', '我的第一小组');
+  App.go('catalog', { sem: '3a', unit: 0, lesson: null });
+  await wait(800);
+  T('目录页课名显示自定义名称', () => {
+    const txt = (doc.getElementById('lessonList') || doc.body).textContent;
+    return txt.indexOf('我的第一小组') >= 0 ? true : '目录里没有出现自定义名';
+  });
+  Store.setCustomName('3a-0-1', '');
+  App.go('catalog', { sem: '3a', unit: 0, lesson: null });
+  await wait(700);
+  T('自定义名清除后恢复原课名', () => {
+    const txt = (doc.getElementById('lessonList') || doc.body).textContent;
+    return txt.indexOf('我的第一小组') < 0 ? true : '清除后还残留自定义名';
+  });
+
   console.log('\n通过 ' + pass + ' / 失败 ' + fail);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('运行异常：', e); process.exit(2); });
