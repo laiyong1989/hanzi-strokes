@@ -43,12 +43,19 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
 # ---------------------------------------------------------------------------
 if [ "$DRY" -eq 0 ]; then
   git add -A
+  STAGED="$(git diff --cached --name-status)"
 else
   echo "${DIM}[演练] git add -A${RST}"
+  # 演练时不动索引，用「已暂存 + 未暂存 + 未跟踪」拼出 add -A 之后的等价清单
+  STAGED="$(
+    { git diff --cached --name-status
+      git diff --name-status
+      git ls-files --others --exclude-standard | sed 's/^/A\t/'
+    } 2>/dev/null
+  )"
 fi
 
-STAGED="$(git diff --cached --name-status)"
-if [ -z "$STAGED" ]; then
+if [ -z "$(printf '%s' "$STAGED" | tr -d '[:space:]')" ]; then
   echo "  · 没有需要提交的变更"
   exit 0
 fi
