@@ -269,6 +269,15 @@ scripts/auto-sync.sh -m "..." --no-push          # 只提交，不推送
 scripts/auto-sync.sh --dry                       # 演练，打印将要做什么但不改仓库
 ```
 
+#### 暂时不推送（远端不可用 / 离线开发）
+
+```bash
+git config --local hzpb.pushDisabled true    # 暂停：只做本地提交，不报 origin 未配置
+git config --local --unset hzpb.pushDisabled  # 恢复推送
+```
+
+暂停期间改动照常进本地版本库，等远端就绪后一次 `git push -u origin main` 即可补齐。
+
 ### 常驻监听
 
 ```bash
