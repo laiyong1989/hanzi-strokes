@@ -245,3 +245,4 @@
     pickDailyChars: pickDailyChars
   };
 })(window);
+x

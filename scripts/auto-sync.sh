@@ -162,7 +162,8 @@ fi
 # ---------------------------------------------------------------------------
 # 4. 提交
 # ---------------------------------------------------------------------------
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+# 首次提交时 HEAD 还未出生，--abbrev-ref 会失败，故用 symbolic-ref
+BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo main)"
 if ! git commit -q -m "$MSG"; then
   echo "${RED}✗ 提交失败（见上方 git 输出）${RST}" >&2
   exit 1
