@@ -289,6 +289,15 @@ E
   exit 3
 }
 
+# 推送暂停开关：远端授权不可用期间，只做本地提交，不反复提示配 origin。
+# 恢复推送：git config --local --unset hzpb.pushDisabled
+if [ "$(git config --local --get hzpb.pushDisabled 2>/dev/null)" = "true" ]; then
+  echo ""
+  echo "${DIM}  · 推送已暂停（hzpb.pushDisabled=true），本次仅提交到本地仓库${RST}"
+  echo "${DIM}    恢复推送：git config --local --unset hzpb.pushDisabled${RST}"
+  exit 0
+fi
+
 REMOTE_URL="$(git remote get-url origin 2>/dev/null || true)"
 if [ -z "$REMOTE_URL" ]; then
   echo ""
