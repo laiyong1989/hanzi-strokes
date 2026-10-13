@@ -168,8 +168,9 @@ git remote add origin git@github.com:<用户名>/<仓库名>.git
 ├── manifest.webmanifest     PWA 清单：名称、图标、全屏显示。
 ├── sw.js                    Service Worker：离线缓存。改了数据记得升 VER（当前 hzpb-v2），
 │                            否则老设备会一直吃旧缓存。
-├── smoke-test.html          浏览器内自测页，打开即跑约 102 项检查（渲染/布局/像素/交互）。
+├── smoke-test.html          浏览器内自测页，跑 113 项检查（渲染/布局/像素/交互）；建议用 .build/run-smoke.js 自动跑。
 ├── 启动服务.command          macOS 双击启动本地静态服务。
+├── 运行冒烟测试.command        macOS 双击即跑 113 项冒烟测试（自动起服务并打开浏览器）。
 ├── 同步到发布目录.command    把可发布文件复制进 dist/（线上发布的源目录）。
 ├── 笔顺排查报告.md           笔顺数据核查报告（开发记录）。
 │
@@ -190,7 +191,8 @@ git remote add origin git@github.com:<用户名>/<仓库名>.git
     ├── mean/*.txt           手写的组词释义源（字:词=释义|词=释义），共 5038 条。
     ├── dom-mock.js          jsdom 用的 DOM/语音 mock，供下面两个脚本复用。
     ├── verify.js            命令行校验：48 项，覆盖课文/拼音/多音字/三种发音/IPA/组词释义。
-    ├── regress.js           命令行回归：36 项，覆盖导航/练字/判分/字典/闯关/宠物/打卡/存档。
+    ├── regress.js           命令行回归：38 项，覆盖导航/练字/判分/字典/闯关/宠物/打卡/存档/data-go 守卫。
+    ├── run-smoke.js         冒烟测试自动运行器：起服务 + headless Chrome + CDP，跑完 113 项并解析结果。
     ├── raw/ hwd/ word.json  上游原始数据（教材页面、字形包、字典），体积大且版权敏感，
     │                        已在 .gitignore 中排除，不进仓库。
     └── *.bak *.log *.png    构建期备份、日志与诊断截图，同样不进仓库。
@@ -232,18 +234,37 @@ window.HZ_CURRICULUM = {
 
 ### 跑测试
 
-浏览器打开 `smoke-test.html` 会自动跑约 **102 项**检查并逐条列出结果，覆盖数据完整性、笔顺引擎、
-真实 pointer 事件的手写链路、canvas 像素、四种视口零横向溢出、按钮尺寸、图标结构等。
-
-只想快速确认「数据和交互没被改坏」，跑命令行脚本（jsdom 模拟，不需要浏览器）：
+三套校验，从快到慢：
 
 ```bash
+# ① 命令行快速校验（jsdom 模拟，不需要浏览器，约 10 秒）
 npm i jsdom
 node .build/verify.js     # 48 项：课文/拼音/多音字/三种发音/IPA/组词释义
-node .build/regress.js    # 36 项：导航/练字/存档/各页面等既有功能
+node .build/regress.js    # 38 项：导航/练字/判分弹窗/存档/data-go 守卫等既有功能
+
+# ② 真实浏览器冒烟测试（113 项，约 18 秒，含 canvas 像素与布局断言）
+node .build/run-smoke.js          # 自动起服务 + headless Chrome + CDP，全程无需人工
+node .build/run-smoke.js --keep   # 跑完保留浏览器（端口 9333），便于人工排查
+
+# ③ 想亲眼看结果：双击 运行冒烟测试.command
 ```
 
-两者退出码 0 表示全部通过，脚本自带临时静态服务，不依赖外部进程。
+`run-smoke.js` 是 `smoke-test.html` 的自动运行器。之所以不直接用
+`chrome --headless --dump-dom`：本机 Chrome 的沙箱初始化会失败，且该输出通道返回 0 字节；
+加 `--no-sandbox` 后调试端口正常，于是改用 **CDP（Chrome DevTools Protocol）** 连上去，
+直接读取页面里的结果文本。脚本自带静态服务与浏览器生命周期，跑完自动清理。
+
+`smoke-test.html` 也可手动打开，但**必须通过 HTTP 访问**（双击打开会以 `file://` 加载，
+浏览器把每个本地文件当作独立源，父页面读不到 iframe 内的应用，测试无法启动）：
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1
+# 然后访问 http://127.0.0.1:8000/smoke-test.html
+```
+
+三者覆盖范围互补：`verify` 查数据与发音、`regress` 查既有功能、`run-smoke` 查真实渲染与交互。
+退出码 0 表示全部通过。
+
 （若 `jsdom` 装在别处，用 `NODE_PATH=<node_modules 路径> node .build/verify.js`。）
 
 ### 发布上线
@@ -387,7 +408,8 @@ feat(data): 新增 data/dict.js 等 3 个文件
 ```bash
 git switch -c feat/你的改动
 # 改代码
-node .build/verify.js && node .build/regress.js    # 命令行校验必须通过
+node .build/verify.js && node .build/regress.js && node .build/run-smoke.js
+                                              # 三套校验必须全部通过
 scripts/auto-sync.sh -m "feat(data): 补三年级上册组词"
 # 然后去 GitHub 提 Pull Request
 ```

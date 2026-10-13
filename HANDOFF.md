@@ -45,8 +45,9 @@ $PY -m http.server 8000 --bind 127.0.0.1
 NODE_PATH=$NODE_PATH $NODE .build/verify.js     # 48 项
 # 既有功能回归（自带临时静态服务 + jsdom）
 NODE_PATH=$NODE_PATH $NODE .build/regress.js    # 38 项
-# 真实浏览器冒烟（102 项，本机 Chrome 跑不了，需人工打开）
-open smoke-test.html
+# 真实浏览器冒烟测试（113 项，自动起服务 + headless Chrome + CDP，无需人工）
+$NODE .build/run-smoke.js                        # 约 18 秒
+$NODE .build/run-smoke.js --keep                 # 跑完保留浏览器便于人工排查
 
 # 自动同步（暂存 → 安全校验 → Conventional Commits → 提交 → 推送）
 bash scripts/auto-sync.sh -m "fix(app): 说明改了什么"
@@ -59,7 +60,11 @@ cp index.html sw.js manifest.webmanifest dist/ && cp -R css js data assets dist/
 
 ### 环境限制（会反复踩，记牢）
 
-1. **headless Chrome 完全不可用**：任何 URL（含 `data:`）都返回 0 字节。所有浏览器端校验都走 **jsdom**（`.build/dom-mock.js` 提供 canvas ctx / getBBox / speechSynthesis / PointerEvent 等 mock）。
+1. **headless Chrome 的 `--dump-dom` 输出通道坏了**（返回 0 字节），且不带参数时沙箱初始化失败
+   （`sandbox initialization failed: Operation not permitted`）。
+   **但加 `--no-sandbox` 后 CDP 调试端口完全正常** → 已据此写 `.build/run-smoke.js`，
+   用 CDP 连上去直接读页面 `#out` 文本，绕开坏掉的输出通道。
+   jsdom 校验（`.build/verify.js`、`.build/regress.js）仍作为快速回归，两者互补。
 2. **无 GitHub 凭证**：无 `gh`、无 SSH 公钥注册、无 PAT、无钥匙串条目、GitHub MCP 工具未暴露。推送已用 `hzpb.pushDisabled=true` 暂停。
 3. **外网下载不稳定**：曾尝试下载 chinese-xinhua 的 `word.json`（26MB）失败，释义改为手写。
 4. **Bash 里的 `grep` 常被沙箱静默失败**：多分支匹配一律用 Grep 工具；macOS 是 BSD grep，**不支持 `-P`**。
@@ -167,7 +172,7 @@ localStorage['hzpb.v1'] // 存档；settings = { sound, demoSpeed, autoRead, voi
 | T1 | **高** | **线上版本缺白屏修复** | 源 `index.html` 已改，`dist/index.html` 未同步。需 `cp` 同步后重新发布，否则线上点「开始写字」仍白屏 |
 | T2 | 中 | GitHub 推送搁置 | 用户登不上 GitHub。恢复：`git config --local --unset hzpb.pushDisabled` → 用户注册 `~/.ssh/id_ed25519_github.pub` 并在 github.com/new 建空仓库 → `git remote add origin` + `git push -u origin main` |
 | T3 | 中 | 提交身份是占位值 | `Lai Yong <lai.yong@users.noreply.github.com>`，拿到真实 GitHub 用户名后需改并修正历史 |
-| T4 | 中 | `smoke-test.html` 无法在本机跑 | 102 项含布局/像素/动画断言，需真实浏览器，jsdom 跑不了。发布前建议人工打开一次 |
+| T4 | ~~中~~ | ~~`smoke-test.html` 无法在本机跑~~ | ✅ 已解决：新增 `.build/run-smoke.js`（CDP 驱动 headless Chrome），113 项 18 秒跑完，可随时自动执行 |
 | T5 | 中 | P0 产品优化未实施 | 见 `docs/产品评估-2026-10-13.md`：年级册次设置(P0-2)、存档备份恢复(P0-3)、错字本(P0-4)、家长周报(P0-5) |
 | T6 | 低 | 3–6 年级课文归属缺失 | 占字量 68.9% 的课名是「第 N 组」，「按课文学习」在高年级失效 |
 | T7 | 低 | 激励天花板 | 金币唯一出口是喂宠物，200 金币（≈23 个三星字）即到顶，之后只进不出 |
