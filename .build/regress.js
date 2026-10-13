@@ -202,6 +202,27 @@ function serve(root) {
   T('打卡页可渲染', () => { App.go('checkin'); return !!doc.getElementById('scCheckin') ? true : '缺打卡页'; });
   T('首页可返回', () => { App.go('home'); return $('#scHome').classList.contains('on') ? true : App.screen; });
 
+  /* 通用守卫：任何 data-go 的目标都必须真实存在，否则点了会白屏（首页主按钮曾指向不存在的 learn） */
+  T('所有 data-go 目标都有对应页面', () => {
+    const bad = [];
+    doc.querySelectorAll('[data-go]').forEach(el => {
+      const t = el.getAttribute('data-go');
+      const id = 'sc' + t.charAt(0).toUpperCase() + t.slice(1);
+      if (!doc.getElementById(id)) bad.push(t + '->#' + id);
+    });
+    return bad.length === 0 ? true : ('指向不存在的页面: ' + bad.join(', '));
+  });
+  await TA('点首页「开始写字」能进入按课文学习，不白屏', async () => {
+    App.go('home');
+    await wait(200);
+    const btn = doc.querySelector('#scHome [data-go="catalog"].btn-main') || doc.querySelector('#scHome .btn-main');
+    if (!btn) return '首页没有主按钮';
+    btn.click();
+    await wait(500);
+    const on = doc.querySelectorAll('.screen.on');
+    return on.length === 1 && on[0].id === 'scCatalog' ? true : ('可见页面数 ' + on.length + ' / ' + (on[0] ? on[0].id : '无'));
+  });
+
   /* ---------- 6. 存档 ---------- */
   console.log('--- 6. 本机存档 ---');
   T('只有一个速度档处于选中态', () => {
