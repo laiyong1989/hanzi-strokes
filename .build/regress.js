@@ -72,9 +72,9 @@ function serve(root) {
   Object.keys(CUR).forEach(k => CUR[k].units.forEach(u => u.lessons.forEach(L => { tot += L.chars.length; lessonN++; })));
   T('生字总数 2000~3000', () => (tot > 2000 && tot < 3000) ? true : tot);
   T('课数 200 以上', () => lessonN > 200 ? true : lessonN);
-  T('一年级上册 26 课', () => {
+  T('一年级上册 45 课（2022 版 9 单元）', () => {
     const n = CUR['1a'].units.reduce((s, u) => s + u.lessons.length, 0);
-    return n === 26 ? true : n;
+    return n === 45 ? true : n;
   });
   T('二年级下册 29 课', () => {
     const n = CUR['2b'].units.reduce((s, u) => s + u.lessons.length, 0);
@@ -100,10 +100,10 @@ function serve(root) {
     const g = doc.querySelectorAll('#unitList .unit-group').length;
     return (g === 8 && !$('#unitList').hidden) ? true : ('单元组 ' + g);
   });
-  T('第八单元里有《狐假虎威》', () => {
+  T('第八单元里有《雾在哪里》', () => {
     const g = doc.querySelectorAll('#unitList .unit-group')[7];
     const first = g && g.querySelector('.lsn .lsn-n');
-    return first && /狐假虎威/.test(first.textContent) ? true : (first ? first.textContent : '无');
+    return first && /雾在哪里/.test(first.textContent) ? true : (first ? first.textContent : '无');
   });
 
   /* ---------- 3. 生字页 ---------- */

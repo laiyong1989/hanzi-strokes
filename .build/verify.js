@@ -25,24 +25,28 @@ function T(name, fn) {
   const C = win.HZ_CURRICULUM, D = win.HZ_DICT;
 
   console.log('--- 1. 课文数据 ---');
-  T('二年级上册有 28 课', () => {
+  T('二年级上册有 36 课（2022 版 8 单元）', () => {
     const n = C['2a'].units.reduce((s, u) => s + u.lessons.length, 0);
-    return n === 28 ? true : n;
+    return (n === 36 && C['2a'].units.length === 8) ? true : n;
   });
-  T('二上第八单元 4 课齐全且顺序正确', () => {
+  T('二上第八单元 6 课齐全且顺序正确', () => {
     const ls = C['2a'].units[7].lessons;
-    const want = ['21《狐假虎威》', '22《狐狸分奶酪》', '23《纸船和风筝》', '24《风娃娃》'];
+    const want = ['19《雾在哪里》', '20《雪孩子》', '21《称赞》', '22《纸船和风筝》', '23《快乐的小河》', '语文园地八'];
     return ls.map(l => l.name).join('|') === want.join('|') ? true : ls.map(l => l.name).join('|');
   });
-  T('17《难忘的泼水节》生字已修正', () =>
-    C['2a'].units[5].lessons[2].chars.join('') === '忘泼度龙炮穿向令' ? true : C['2a'].units[5].lessons[2].chars.join(''));
-  T('一年级下册 11《彩虹》仍在且未被动过', () => {
-    const l = C['1b'].units[3].lessons.find(x => x.name.indexOf('彩虹') >= 0);
-    return l && l.chars.join('') === '那着到高兴千成' ? true : (l ? l.chars.join('') : '找不到');
+  T('16《难忘的泼水节》生字已修正', () =>
+    C['2a'].units[5].lessons[2].chars.join('') === '难忘民因理串裤令' ? true : C['2a'].units[5].lessons[2].chars.join(''));
+  T('一年级下册 37 课，旧版《彩虹》已移到二上', () => {
+    const n = C['1b'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const has = C['1b'].units.some(u => u.lessons.some(l => l.name.indexOf('彩虹') >= 0));
+    return (n === 37 && !has) ? true : ('课数 ' + n + ' 彩虹还在=' + has);
   });
-  T('其余 11 册课文数未变（1a26/1b29/2b29）', () => {
+  T('一下语文园地三含新增字「止斤寸丁千旦」', () =>
+    C['1b'].units[2].lessons[3].chars.join('') === '止斤寸丁千旦' ? true : C['1b'].units[2].lessons[3].chars.join(''));
+  T('未升级的册次课文数保持原样（2b29/3a21/4a21/5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('1a') === 26 && n('1b') === 29 && n('2b') === 29) ? true : [n('1a'), n('1b'), n('2b')].join('/');
+    return (n('2b') === 29 && n('3a') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
+      ? true : [n('2b'), n('3a'), n('4a'), n('5a'), n('6a')].join('/');
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
@@ -98,16 +102,16 @@ function T(name, fn) {
   });
 
   spoken.length = 0;
-  win.App.enterPractice(['忘', '泼', '龙'], 0, {});
+  win.App.enterPractice(['忘', '民', '因'], 0, {});
   await wait(1500);
   T('进入生字后自动朗读一次', () => spoken.length === 1 && spoken[0].text === '忘' ? true : JSON.stringify(spoken));
   const before = spoken.length;
   doc.getElementById('btnNextChar').click();
   await wait(1400);
   T('切到下一个字会再朗读一次', () =>
-    spoken.length === before + 1 && spoken[spoken.length - 1].text === '泼' ? true : JSON.stringify(spoken));
+    spoken.length === before + 1 && spoken[spoken.length - 1].text === '民' ? true : JSON.stringify(spoken));
   const before2 = spoken.length;
-  win.App.enterPractice(['泼'], 0, {});
+  win.App.enterPractice(['民'], 0, {});
   await wait(900);
   T('同一个字重复渲染不会再朗读', () => spoken.length === before2 ? true : JSON.stringify(spoken));
   T('朗读开关存在且默认打开', () => {
@@ -329,7 +333,7 @@ function T(name, fn) {
   win.Store.setSetting('voice', 'zh');
 
   console.log('--- 4. 练字页组词展示 ---');
-  win.App.enterPractice(['洪'], 0, {});
+  win.App.enterPractice(['论'], 0, {});
   await wait(1200);
   T('练字页出现组词区块', () => {
     const els = doc.querySelectorAll('#pracDict .wd');
@@ -345,7 +349,7 @@ function T(name, fn) {
   });
   T('练字页组词与字典一致', () => {
     const b = doc.querySelector('#pracDict .wd b');
-    return b && (D['洪'].w.indexOf(b.textContent) >= 0) ? true : (b ? b.textContent : '无');
+    return b && (D['论'].w.indexOf(b.textContent) >= 0) ? true : (b ? b.textContent : '无');
   });
 
   console.log('\n--- 8. 第 1 层：年级册次设置 + 分组自定义名 ---');

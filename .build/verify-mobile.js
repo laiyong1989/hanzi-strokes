@@ -72,7 +72,7 @@ function patchMobile(win) {
   doc.dispatchEvent(new win.Event('touchend', { bubbles: true }));
   await wait(300);
   spoken.length = 0;
-  App.enterPractice(['龙'], 0, {});
+  App.enterPractice(['民'], 0, {});
   await wait(1000);
   T('第一次触摸屏幕后解锁，自动朗读恢复', () =>
     spoken.length >= 1 ? true : ('解锁后仍不朗读 ' + JSON.stringify(spoken)));

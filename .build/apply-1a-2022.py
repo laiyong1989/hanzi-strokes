@@ -103,13 +103,11 @@ def main():
     for k in old:
         if k != '1a':
             assert chk[k] == old[k], '其余册次发生变化：%s' % k
-    raw = new_raw
 
     bak = P + '.bak'
     if not os.path.exists(bak):
         shutil.copy(P, bak)
-    open(P, 'w', encoding='utf-8').write(
-        head + json.dumps(C, ensure_ascii=False, separators=(',', ':')) + ';')
+    open(P, 'w', encoding='utf-8').write(new_raw)
 
     n = sum(len(u['lessons']) for u in units)
     chars = sum(len(l['chars']) for u in units for l in u['lessons'])

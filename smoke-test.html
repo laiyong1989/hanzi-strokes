@@ -78,6 +78,21 @@ function go(f){
 async function main(win, doc){
   await wait(300);
   var CUR = win.HZ_CURRICULUM, HZ = win.HZ, Store = win.Store;
+  /* 2022 版课表里「我上学了」「汉语拼音」等课在写字表里没有生字，
+     流程类断言统一取「第一课有生字的课」，避免点到空课 */
+  function firstLessonWithChars(sem){
+    var us = CUR[sem].units;
+    for (var i = 0; i < us.length; i++)
+      for (var j = 0; j < us[i].lessons.length; j++)
+        if (us[i].lessons[j].chars.length) return us[i].lessons[j];
+    return null;
+  }
+  function lsnWithChars(){
+    var all = doc.querySelectorAll('#unitList .lsn');
+    for (var i = 0; i < all.length; i++)
+      if (/\S/.test(all[i].querySelector('.lsn-c').textContent)) return all[i];
+    return null;
+  }
 
   /* ---------- 1. 数据完整性 ---------- */
   T('课程含 12 册', function(){ return Object.keys(CUR).length === 12 ? true : ('册数=' + Object.keys(CUR).length); });
@@ -87,8 +102,8 @@ async function main(win, doc){
   });
   T('生字总数 2000~3000', function(){ return (tot > 2000 && tot < 3000) ? true : ('总字数=' + tot); });
   T('课数 200 以上', function(){ return lessonN > 200 ? true : ('课数=' + lessonN); });
-  T('一年级上册有 26 课', function(){
-    var n = 0; CUR['1a'].units.forEach(function(u){ n += u.lessons.length; }); return n === 26 ? true : ('课数=' + n); });
+  T('一年级上册有 45 课（2022 版）', function(){
+    var n = 0; CUR['1a'].units.forEach(function(u){ n += u.lessons.length; }); return n === 45 ? true : ('课数=' + n); });
   T('二年级下册有 29 课', function(){
     var n = 0; CUR['2b'].units.forEach(function(u){ n += u.lessons.length; }); return n === 29 ? true : ('课数=' + n); });
   T('字典数据存在', function(){ return Object.keys(win.HZ_DICT).length > 2000 ? true : ('字典字数=' + Object.keys(win.HZ_DICT).length); });
@@ -97,6 +112,8 @@ async function main(win, doc){
 
   /* ---------- 2. 笔顺数据加载 ---------- */
   await HZ.loadSem('1a');
+  await HZ.loadSem('1b');
+  await HZ.loadSem('2a');
   await HZ.loadSem('2b');
   T('加载 1a 字帖', function(){ return !!HZ.dataOf('一'); });
   T('「一」是 1 笔', function(){ return HZ.dataOf('一').s.length === 1 ? true : ('笔画=' + HZ.dataOf('一').s.length); });
@@ -178,7 +195,7 @@ async function main(win, doc){
   T('选册页显示 12 册', function(){ var n = doc.querySelectorAll('#semList .card').length; return n === 12 ? true : ('卡片=' + n); });
   doc.querySelector('#semList .card').click(); await wait(60);
   T('单元列表出现', function(){ return doc.querySelectorAll('#unitList .unit-group').length > 0; });
-  var firstLesson = doc.querySelector('#unitList .lsn');
+  var firstLesson = lsnWithChars();
   T('每课显示生字', function(){ return !!firstLesson && /\S/.test(firstLesson.textContent); });
   firstLesson.click(); await wait(120);
   T('字表页显示本课字格', function(){
@@ -218,8 +235,11 @@ async function main(win, doc){
   T('点部首出结果', function(){ return doc.querySelectorAll('#dictResults .dr-card').length > 0; });
 
   App.go('levels', null, false); await wait(80);
-  T('闯关页有 26 关', function(){
-    var n = doc.querySelectorAll('#lvList .lv-card').length; return n === 26 ? true : ('关卡=' + n); });
+  T('闯关页关卡数 = 有生字的课数', function(){
+    var want = 0;
+    CUR['1a'].units.forEach(function(u){ u.lessons.forEach(function(L){ if (L.chars.length) want++; }); });
+    var n = doc.querySelectorAll('#lvList .lv-card').length;
+    return n === want ? true : ('关卡=' + n + ' 期望=' + want); });
   T('闯关页可切册', function(){
     var segs = doc.querySelectorAll('#lvSemSeg .seg-btn');
     if (segs.length !== 12) return segs.length;
@@ -258,7 +278,7 @@ async function main(win, doc){
   /* ---------- 6.5 按钮与打卡流程 ---------- */
   App.go('catalog', null, false); await wait(40);
   doc.querySelector('#semList .card').click(); await wait(40);
-  doc.querySelector('#unitList .lsn').click(); await wait(80);
+  lsnWithChars().click(); await wait(80);
   doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(800);
   T('练字页按钮不报错', function(){
     doc.getElementById('btnUndo').click();
@@ -305,7 +325,7 @@ async function main(win, doc){
   }
   App.go('catalog', null, false); await wait(40);
   doc.querySelector('#semList .card').click(); await wait(40);
-  doc.querySelector('#unitList .lsn').click(); await wait(60);
+  lsnWithChars().click(); await wait(60);
   doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(800);
   (function(){
     var st = doc.getElementById('stage').getBoundingClientRect();
@@ -350,7 +370,7 @@ async function main(win, doc){
     return n > 400 ? true : ('不透明像素=' + n); });
   App.go('catalog', null, false); await wait(40);
   doc.querySelector('#semList .card').click(); await wait(40);
-  doc.querySelector('#unitList .lsn').click(); await wait(60);
+  lsnWithChars().click(); await wait(60);
   doc.querySelectorAll('#charGrid .cell')[0].click(); await wait(2600);   // 等自动演示结束
   function lastGlyph(){
     var gs = doc.querySelectorAll('#stageSvg g[transform]');
@@ -404,7 +424,7 @@ async function main(win, doc){
     });
   })();
   (function(){
-    var ch = CUR['1a'].units[0].lessons[0].chars[0];
+    var ch = firstLessonWithChars('1a').chars[0];
     var cv = doc.getElementById('ink'), r = cv.getBoundingClientRect();
     var med = win.HZ.medianScreen(win.HZ.dataOf(ch).m[0]);
     function ev(t, vb){ cv.dispatchEvent(new win.PointerEvent(t, { bubbles: true, cancelable: true,

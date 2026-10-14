@@ -459,7 +459,7 @@
     $('btnBack').hidden = (name === 'home');
     var sc = el && el.querySelector ? el : null;
     refreshTop();
-    if (name === 'practice' && PR.p) setTimeout(function () { PR.p.resize(); }, 60);
+    if (name === 'practice' && PR.p) setTimeout(function () { if (PR.p) PR.p.resize(); }, 60);
   }
   function go(name, params, push) {
     if (push !== false && App.screen !== name) App.stack.push({ s: App.screen, p: App.params });
@@ -649,6 +649,7 @@
         '<span class="cell-badge">' + (st ? '★' + st.s : (i + 1)) + '</span>' + inner +
         '<span class="cell-py' + (voiceKind() === 'en' ? ' en' : '') + '">' + labelOf(c) + '</span></button>';
     }).join('');
+    if (!L.chars.length) $('charGrid').innerHTML = '<p class="empty">这一课在写字表里没有生字</p>';
     // 异步补字帖
     w.HZ.loadSem(p.sem).then(function () {
       var cells = $('charGrid').children;
@@ -1122,6 +1123,7 @@
     var sem = CUR[lvSem], html = '', idx = 0;
     sem.units.forEach(function (u) {
       u.lessons.forEach(function (L) {
+        if (!L.chars.length) return;        // 写字表里没有生字的课（我上学了/汉语拼音课）不进闯关
         var ls = w.Store.lessonState(L.id);
         var d = w.Store.lessonDoneChars(L);
         var done = d >= L.chars.length;
@@ -1380,7 +1382,10 @@
             if (CUR[lvSem].units[i].lessons[j].id === id) L = CUR[lvSem].units[i].lessons[j];
           }
         }
-        if (L) enterPractice(L.chars, 0, { lesson: L, back: 'levels' });
+        if (L) {
+          if (!L.chars.length) { toast('这一课在写字表里没有生字，换一课试试吧', '', 1800); return; }
+          enterPractice(L.chars, 0, { lesson: L, back: 'levels' });
+        }
         return;
       }
       var lvs = e.target.closest('[data-lvsem]');
@@ -1395,6 +1400,7 @@
     };
     $('btnWholeLesson').onclick = function () {
       if (!Viewing.lesson) return;
+      if (!Viewing.lesson.chars.length) { toast('本课在写字表里没有生字', '', 1800); return; }
       var st = App.catState;
       enterPractice(Viewing.lesson.chars, 0, {
         lesson: Viewing.lesson, back: 'chars',
