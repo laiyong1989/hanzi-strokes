@@ -124,6 +124,19 @@ function T(name, fn) {
     return (y6 === '孝喻躁泣弛卑亢赋' && y7 === '湘粤蜀沪滇赣闽陕窑皖')
       ? true : 'Y6:' + y6 + ' | Y7:' + y7;
   });
+  T('五年级下册 31 课（2022 版 8 单元，U3 为综合性学习）180 字', () => {
+    const n = C['5b'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['5b'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    const u3 = C['5b'].units[2].lessons[0].name;
+    return (n === 31 && C['5b'].units.length === 8 && c === 180 && u3.includes('遨游汉字'))
+      ? true : (n + '课/' + c + '字/U3=' + u3);
+  });
+  T('五下 5《草船借箭》含「遮漆疑惑」、22《手指》含「拇搔痒秽拧螺」', () => {
+    const l5 = C['5b'].units[1].lessons[0].chars.join('');
+    const l22 = C['5b'].units[7].lessons[1].chars.join('');
+    return (l5 === '妒忌曹督委鲁遮漆疑惑寨擂呐插' && l22 === '拇搔痒秽轧拧螺纽扣貌仓渺享庸憎')
+      ? true : '5:' + l5 + ' | 22:' + l22;
+  });
   T('未升级的册次课文数保持原样（6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
     return n('6a') === 15 ? true : String(n('6a'));
