@@ -76,9 +76,9 @@ function serve(root) {
     const n = CUR['1a'].units.reduce((s, u) => s + u.lessons.length, 0);
     return n === 45 ? true : n;
   });
-  T('二年级下册 29 课', () => {
+  T('二年级下册 37 课（2022 版）', () => {
     const n = CUR['2b'].units.reduce((s, u) => s + u.lessons.length, 0);
-    return n === 29 ? true : n;
+    return n === 37 ? true : n;
   });
   T('字典 2000 字以上', () => Object.keys(D).length > 2000 ? true : Object.keys(D).length);
   T('字典含拼音与部首', () => {

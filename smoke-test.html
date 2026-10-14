@@ -104,8 +104,8 @@ async function main(win, doc){
   T('课数 200 以上', function(){ return lessonN > 200 ? true : ('课数=' + lessonN); });
   T('一年级上册有 45 课（2022 版）', function(){
     var n = 0; CUR['1a'].units.forEach(function(u){ n += u.lessons.length; }); return n === 45 ? true : ('课数=' + n); });
-  T('二年级下册有 29 课', function(){
-    var n = 0; CUR['2b'].units.forEach(function(u){ n += u.lessons.length; }); return n === 29 ? true : ('课数=' + n); });
+  T('二年级下册有 37 课（2022 版）', function(){
+    var n = 0; CUR['2b'].units.forEach(function(u){ n += u.lessons.length; }); return n === 37 ? true : ('课数=' + n); });
   T('字典数据存在', function(){ return Object.keys(win.HZ_DICT).length > 2000 ? true : ('字典字数=' + Object.keys(win.HZ_DICT).length); });
   T('字典含拼音/部首', function(){
     var d = win.HZ_DICT['春']; return (d.p && d.p.length > 0 && !!d.r) ? true : ('春=' + JSON.stringify(d)); });

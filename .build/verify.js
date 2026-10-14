@@ -43,10 +43,10 @@ function T(name, fn) {
   });
   T('一下语文园地三含新增字「止斤寸丁千旦」', () =>
     C['1b'].units[2].lessons[3].chars.join('') === '止斤寸丁千旦' ? true : C['1b'].units[2].lessons[3].chars.join(''));
-  T('未升级的册次课文数保持原样（2b29/3a21/4a21/5a19/6a15）', () => {
+  T('未升级的册次课文数保持原样（3a21/4a21/5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('2b') === 29 && n('3a') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
-      ? true : [n('2b'), n('3a'), n('4a'), n('5a'), n('6a')].join('/');
+    return (n('3a') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
+      ? true : [n('3a'), n('4a'), n('5a'), n('6a')].join('/');
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
