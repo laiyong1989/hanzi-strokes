@@ -42,11 +42,13 @@ $PY -m http.server 8000 --bind 127.0.0.1
 # 注意：Bash 会话结束后该进程会被回收，测试脚本已自带临时服务，不必依赖它
 
 # 功能校验（本轮改动）
-NODE_PATH=$NODE_PATH $NODE .build/verify.js     # 48 项
+NODE_PATH=$NODE_PATH $NODE .build/verify.js     # 57 项
 # 既有功能回归（自带临时静态服务 + jsdom）
 NODE_PATH=$NODE_PATH $NODE .build/regress.js    # 38 项
+# 移动端语音行为（beforeParse 里伪造 iPhone 环境，6 项）
+NODE_PATH=$NODE_PATH $NODE .build/verify-mobile.js
 # 真实浏览器冒烟测试（113 项，自动起服务 + headless Chrome + CDP，无需人工）
-$NODE .build/run-smoke.js                        # 约 18 秒
+$NODE .build/run-smoke.js                        # 约 20 秒
 $NODE .build/run-smoke.js --keep                 # 跑完保留浏览器便于人工排查
 
 # 自动同步（暂存 → 安全校验 → Conventional Commits → 提交 → 推送）
