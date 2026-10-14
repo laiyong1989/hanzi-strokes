@@ -137,10 +137,27 @@ function T(name, fn) {
     return (l5 === '妒忌曹督委鲁遮漆疑惑寨擂呐插' && l22 === '拇搔痒秽轧拧螺纽扣貌仓渺享庸憎')
       ? true : '5:' + l5 + ' | 22:' + l22;
   });
-  T('未升级的册次课文数保持原样（6a15）', () => {
+  T('未升级的册次课文数保持原样（6b 11 课）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return n('6a') === 15 ? true : String(n('6a'));
+    return n('6b') === 11 ? true : String(n('6b'));
   });
+  T('六年级上册 34 课（2022 版 8 单元）180 字', () => {
+    const n = C['6a'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['6a'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 34 && C['6a'].units.length === 8 && c === 180) ? true : (n + '课/' + c + '字');
+  });
+  T('六上 1《草原》「勒」首读 lè、23《少年闰土》含「伶俐」、24《好的故事》含「藻焰削」', () => {
+    const l1 = C['6a'].units[0].lessons[0].chars.join('');
+    const l23 = C['6a'].units[7].lessons[0].chars.join('');
+    const l24 = C['6a'].units[7].lessons[1].chars.join('');
+    return (l1 === '勒吟骏鞭裳蹄腐貌拘稍'
+      && l23 === '郑拜偷租厨毡羞爹猬伶俐'
+      && l24 === '搁萍藻漾焰削缕晕骤撕坠剩')
+      ? true : '1:' + l1 + ' 23:' + l23 + ' 24:' + l24;
+  });
+  T('六上 21《表里的生物》含「谐拦添怖愉蟋蟀」', () =>
+    C['6a'].units[6].lessons[1].chars.join('') === '谐拦添怖愉蟋蟀'
+      ? true : C['6a'].units[6].lessons[1].chars.join(''));
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
     for (const s in C) {
