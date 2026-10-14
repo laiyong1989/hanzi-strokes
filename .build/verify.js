@@ -137,10 +137,34 @@ function T(name, fn) {
     return (l5 === '妒忌曹督委鲁遮漆疑惑寨擂呐插' && l22 === '拇搔痒秽轧拧螺纽扣貌仓渺享庸憎')
       ? true : '5:' + l5 + ' | 22:' + l22;
   });
-  T('未升级的册次课文数保持原样（6b 11 课）', () => {
-    const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return n('6b') === 11 ? true : String(n('6b'));
+  T('六年级下册 24 课（2022 版 6 单元，末单元为综合性学习）120 字', () => {
+    const n = C['6b'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['6b'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    const u6 = C['6b'].units[5].lessons[0].name;
+    return (n === 24 && C['6b'].units.length === 6 && c === 120 && u6.includes('难忘小学生活'))
+      ? true : (n + '课/' + c + '字/U6=' + u6);
   });
+  T('六下 3《古诗三首》含「脉栖鸦」、8《匆匆》含「藏挪徘徊蒸裸」', () => {
+    const l3 = C['6b'].units[0].lessons[2].chars.join('');
+    const l8 = C['6b'].units[2].lessons[0].chars.join('');
+    return (l3 === '御侯皎章泣盈脉栖鸦' && l8 === '藏挪徘徊蒸裸')
+      ? true : '3:' + l3 + ' | 8:' + l8;
+  });
+  T('六下 11《十六年前的回忆》含「稚避峻啪僻瞅靴魔刑」、16《表里的生物》含「吠脆拦恶蟋蟀」', () => {
+    const l11 = C['6b'].units[3].lessons[1].chars.join('');
+    const l16 = C['6b'].units[4].lessons[2].chars.join('');
+    return (l11 === '稚避峻啪僻瞅靴魔刑哼绑啃袍押执'
+      && l16 === '吠脆拦恶蟋蟀')
+      ? true : '11:' + l11 + ' | 16:' + l16;
+  });
+  T('六下第四单元含「综合性学习：奋斗的历程」且无生字、第二单元末为快乐读书吧', () => {
+    const u4 = C['6b'].units[3].lessons.map(l => l.name);
+    const u2last = C['6b'].units[1].lessons[C['6b'].units[1].lessons.length - 1];
+    return (u4.some(x => x.includes('奋斗的历程')) && u2last.name === '快乐读书吧')
+      ? true : u4.join('/') + ' | ' + u2last.name;
+  });
+  T('六下「脉」首读 mò（脉脉不得语）', () =>
+    D['脉'].p[0] === 'mò' ? true : D['脉'].p.join(','));
   T('六年级上册 34 课（2022 版 8 单元）180 字', () => {
     const n = C['6a'].units.reduce((s, u) => s + u.lessons.length, 0);
     const c = C['6a'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
