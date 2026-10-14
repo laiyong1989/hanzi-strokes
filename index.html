@@ -132,11 +132,16 @@
       <button class="btn-read" id="btnRead" aria-pressed="true" title="换到新字时自动读一次它的读音">
         <svg class="ic"><use href="#i-sound"/></svg><span>自动朗读</span>
       </button>
+      <button class="btn-speak" id="btnSpeak" title="立刻读一遍这个字（手机上请点这个按钮）">
+        <svg class="ic"><use href="#i-sound"/></svg><span>读一次</span>
+      </button>
       <div class="voice-seg" id="voiceSeg" role="group" aria-label="朗读发音">
         <span class="voice-lb">发音</span>
         <button class="vb on" data-voice="zh" title="国语（普通话）">国语</button>
         <button class="vb" data-voice="yue" title="粤语（广东话）">粤语</button>
         <button class="vb" data-voice="en" title="英语：读这个字的英文单词">English</button>
+        <button class="vb-diag" id="btnVoiceDiag" title="查看系统语音清单与三档实际使用的语音"
+                aria-label="语音诊断">诊断</button>
       </div>
     </div>
 

@@ -186,6 +186,11 @@ button{border:0;background:none;cursor:pointer;padding:0}
   border-radius:999px;padding:7px 13px;font-weight:800;font-size:13.5px;color:var(--ink-2)}
 .btn-read .ic{width:17px;height:17px}
 .btn-read:active{transform:scale(.97)}
+/* 「读一次」：手机上的可靠发声入口，点击立即同步朗读 */
+.btn-speak{display:flex;align-items:center;gap:5px;background:#FFF6F8;border:2px solid #FFC9D6;
+  border-radius:999px;padding:7px 13px;font-weight:800;font-size:13.5px;color:var(--pink-d)}
+.btn-speak .ic{width:17px;height:17px}
+.btn-speak:active{transform:scale(.97)}
 .btn-read.off{background:#F1EFE9;color:var(--gray-d);opacity:.75}
 .btn-read.off .ic{opacity:.45}
 /* 发音档位：国语 / 粤语 / 英语 */
@@ -193,6 +198,33 @@ button{border:0;background:none;cursor:pointer;padding:0}
 .voice-lb{font-size:12.5px;font-weight:900;color:var(--gray-d);padding:0 3px}
 .voice-seg .vb{padding:7px 12px;border-radius:999px;font-weight:800;font-size:13.5px;color:var(--ink-2)}
 .voice-seg .vb.on{background:var(--blue);color:#fff}
+/* 语音诊断入口：与三档按钮明显区分，避免误点切档 */
+.voice-seg .vb-diag{margin-left:2px;padding:6px 10px;border-radius:999px;font-weight:800;font-size:12.5px;
+  color:var(--ink-2);background:#F7F5F0;border:2px solid var(--line)}
+.voice-seg .vb-diag:active{transform:scale(.96)}
+
+/* ---------------- 语音诊断面板 ---------------- */
+.modal .vd-sum{font-size:14px;margin:0 0 10px}
+.modal .vd-sec{font-size:12.5px;font-weight:900;color:var(--gray-d);text-align:left;margin:12px 0 6px}
+.modal .vd-list{max-height:190px;overflow:auto;text-align:left;border:2px solid var(--line);border-radius:12px;
+  background:#FCFBF8}
+.modal .vd-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:7px 10px;
+  border-bottom:1px solid var(--line);font-size:13px}
+.modal .vd-row:last-child{border-bottom:0}
+.modal .vd-name{font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal .vd-use{flex:none;font-size:11.5px;font-weight:800;color:var(--green-d)}
+.modal .vd-use.off{color:var(--gray-d)}
+.modal .vd-empty{padding:12px 10px;font-size:13px;font-weight:700;color:var(--gray-d);text-align:left}
+.modal .vd-kind{text-align:left;margin-bottom:8px}
+.modal .vd-kind-hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:900}
+.modal .vd-state{margin-top:3px;font-size:12.5px;font-weight:800;line-height:1.5}
+.modal .vd-state.ok{color:var(--green-d)}
+.modal .vd-state.wait{color:var(--gray-d)}
+.modal .vd-state.bad{color:var(--red)}
+.modal .vd-last{text-align:left;font-size:12.5px;font-weight:700;color:var(--ink-2);background:#FCFBF8;
+  border:2px solid var(--line);border-radius:12px;padding:9px 11px;word-break:break-all}
+.modal .vd-hint{margin-top:12px;text-align:left;font-size:12.5px;font-weight:800;line-height:1.7;color:#B45309;
+  background:#FFF6E6;border:2px solid #FFE0B2;border-radius:12px;padding:10px 11px}
 /* 生字卡片上的拼音（英语档位下显示的是英文单词，字更小一点才放得下） */
 .cell .cell-py{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:11px;
   font-weight:800;color:var(--gray-d);letter-spacing:0;line-height:1.2;pointer-events:none}

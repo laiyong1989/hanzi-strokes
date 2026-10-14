@@ -39,19 +39,77 @@
      三种发音：zh 国语（普通话）/ yue 粤语 / en 英语（读这个字的英文单词）。
      关键坑：不能「取第一个中文语音」——macOS 的语音列表里 zh-HK（粤语 Sinji）
      常常排在 zh-CN 前面，那样读出来就是粤语。所以必须按 lang 精确挑。 */
-  var TTS = { ok: false, voices: [], by: { zh: null, yue: null, en: null }, spoken: {}, warned: {} };
+  var TTS = {
+    ok: false, voices: [], by: { zh: null, yue: null, en: null }, spoken: {}, warned: {},
+    st: { zh: 'pending', yue: 'pending', en: 'pending' },   // 每档的三态：hit 命中 / pending 列表未就绪 / missing 确实没装
+    last: null,                                           // 最后一次朗读实际用的（文本 / lang / 语音名），给诊断面板看
+    unlocked: false,                                    // 是否已发生过用户交互（iOS Safari 必须先有交互才允许发声）
+    curCh: ''                                           // 当前正在练的字，供「读一次」按钮使用
+  };
+  /* ---------- 移动端（iOS Safari）适配 ----------
+     iOS Safari 对 Web Speech 有两条硬限制，桌面端没有，所以必须单独处理：
+       1. 必须「已经发生过用户交互」才允许发声，且首次 speak 要在交互事件的调用栈内；
+          我们 autoSpeak 里的 setTimeout 会脱离手势上下文 → 被静默拦截 → 完全没声音。
+       2. getVoices() 在交互之前返回空列表，onvoiceschanged 也可能不触发。
+     参考：andrewusher.dev 的浏览器兼容性实测（iOS Safari 标注 "Requires user interaction"）、
+     百度前端那两篇 speechSynthesis 解析里「必须在用户交互事件中触发 / 移动端自动播放限制」。
+     解法：首次交互时解锁 + 重新读取语音列表；并提供一个手势内同步朗读的按钮作为可靠入口。 */
+  var IS_IOS = /iP(hone|ad|od)/i.test(w.navigator ? (w.navigator.userAgent || '') : '') ||
+    (w.navigator && w.navigator.platform === 'MacIntel' && (w.navigator.maxTouchPoints || 0) > 1);
+  /* 需要手势才允许自动朗读的平台：iOS 必然算；Android Chrome/平板同样有自动播放限制，
+     用 maxTouchPoints 判定（桌面端为 0，不受影响，保持一进页面就能听到读音的体验）。 */
+  var NEEDS_GESTURE = IS_IOS || !!(w.navigator && (w.navigator.maxTouchPoints || 0) > 0);
+  function unlockTTS() {
+    if (TTS.unlocked) return;
+    TTS.unlocked = true;
+    refreshVoices();                                  // 交互之后 getVoices() 才拿得到真实列表
+    try { if (w.speechSynthesis && w.speechSynthesis.resume) w.speechSynthesis.resume(); } catch (e) { }
+  }
+  /* 注册「首次交互即解锁」。用 capture + 自己摘除，不依赖 { once:true }（老 Safari 不认这个对象）。 */
+  function bindUnlock() {
+    if (!w.document) return;
+    var evts = ['pointerdown', 'touchend', 'click', 'keydown'];
+    function h() {
+      unlockTTS();
+      for (var i = 0; i < evts.length; i++) w.document.removeEventListener(evts[i], h, true);
+    }
+    for (var i = 0; i < evts.length; i++) {
+      try { w.document.addEventListener(evts[i], h, true); } catch (e) { }
+    }
+    /* 从后台切回前台：iOS 会暂停语音合成，回来要 resume 一下才继续发声 */
+    try {
+      w.document.addEventListener('visibilitychange', function () {
+        if (!w.document.hidden && w.speechSynthesis && w.speechSynthesis.resume) {
+          try { w.speechSynthesis.resume(); } catch (e) { }
+        }
+      }, false);
+    } catch (e) { }
+  }
   var VOICE_DEF = {
     zh: { lang: 'zh-CN', name: /(普通话|国语|中文|Chinese \(Mainland|Tingting|Ting-Ting|婷婷|Huihui|Yaoyao|Kangkang)/i,
-      langOK: /^(zh[-_]?CN|cmn[-_]?Hans|zh[-_]?Hans|zh[-_]?SG)$/i, langBad: /^(zh[-_]?HK|yue|zh[-_]?yue|zh[-_]?TW|zh[-_]?Hant)$/i },
+      /* 普通话的 lang 写法很多：zh-CN / zh / zh-Hans / cmn / cmn-Hans（还有下划线写法，langOf 已把 _ 换成 -）。
+         这里必须都算命中，否则明明装了普通话却判成「没装」，就会退用系统默认（macOS 上第一个中文语音是粤语）。 */
+      langOK: /^(zh|zh[-_]?(CN|SG|Hans)|cmn([-_]?(Hans|CN))?)$/i,
+      /* 粤语/繁体绝不当国语用：宁可判成「没装」也不要读错 */
+      langBad: /^(zh[-_]?(HK|TW|Hant)|yue|zh[-_]?yue|cmn[-_]?Hant)$/i },
     yue: { lang: 'zh-HK', name: /(粤语|Cantonese|Sinji|Mei-Jia|Meijia)/i,
-      langOK: /^(zh[-_]?HK|yue|zh[-_]?yue)$/i, langBad: /^(zh[-_]?CN|zh[-_]?TW|cmn)/i },
+      langOK: /^(zh[-_]?HK|yue|zh[-_]?yue)$/i, langBad: /^(zh[-_]?(CN|TW|Hans)|cmn)/i },
     en: { lang: 'en-US', name: /(Samantha|Alex|Daniel|Karen|Moira|Google US|Microsoft (Zira|David|Aria))/i,
       langOK: /^en([-_](US|GB|AU|CA|IN))?$/i, langBad: /^(zh|yue|cmn)/i }
   };
+  /* 档位显示名（诊断面板与缺语音提示共用一份，避免两处写不同） */
+  var VOICE_LABEL = { zh: '国语（普通话）', yue: '粤语', en: '英语' };
+  var VOICE_KINDS = ['zh', 'yue', 'en'];
   function langOf(v) { return (v && (v.lang || '')).replace(/_/g, '-').trim(); }
-  /* 挑某个发音的语音：先按 lang 精确匹配，再看名字，最后按 lang 前缀兜底 */
-  function pickVoice(kind) {
+  /* lang 是否算中文类（诊断面板列清单用） */
+  function isChineseLang(L) { return /^(zh|cmn|yue)(-|$)/i.test(L || ''); }
+  /* 挑某个发音的语音：先按 lang 精确匹配，再看名字，最后按 lang 前缀兜底。
+     返回三态：{ state:'hit', voice } 命中 / { state:'pending' } 语音列表还没返回 /
+     { state:'missing' } 列表已就绪但确实没有这个语音。区分 pending 与 missing 很重要：
+     pending 时不能当成「没装」（会误提示用户去下载），也不能当成命中（会读错）。 */
+  function pickVoiceInfo(kind) {
     var def = VOICE_DEF[kind] || VOICE_DEF.zh, vs = TTS.voices;
+    if (!vs || !vs.length) return { state: 'pending', voice: null };
     function hit(v) {
       var L = langOf(v);
       if (def.langBad && def.langBad.test(L)) return 0;      // 明确排除：粤语绝不当国语用
@@ -67,23 +125,39 @@
       var s = hit(vs[i]);
       if (s > bs) { bs = s; best = vs[i]; }
     }
-    return best;
+    return best ? { state: 'hit', voice: best } : { state: 'missing', voice: null };
+  }
+  function pickVoice(kind) { return pickVoiceInfo(kind).voice; }
+  /* 重新读一次语音列表并刷新三档。Chrome 的 getVoices() 常常是延迟返回的，
+     所以除了启动时订阅 onvoiceschanged，朗读前发现没语音时也要能再取一次。 */
+  function refreshVoices() {
+    if (!TTS.ok) return;
+    var vs = [];
+    try { vs = w.speechSynthesis.getVoices() || []; } catch (e) { vs = []; }
+    TTS.voices = vs;
+    for (var i = 0; i < VOICE_KINDS.length; i++) {
+      var k = VOICE_KINDS[i], r = pickVoiceInfo(k);
+      TTS.by[k] = r.voice;
+      TTS.st[k] = r.state;
+    }
   }
   function initTTS() {
     if (!w.speechSynthesis || !w.SpeechSynthesisUtterance) return;
     TTS.ok = true;
-    function pick() {
-      var vs = [];
-      try { vs = w.speechSynthesis.getVoices() || []; } catch (e) { vs = []; }
-      if (!vs.length) return;
-      TTS.voices = vs;
-      TTS.by.zh = pickVoice('zh');
-      TTS.by.yue = pickVoice('yue');
-      TTS.by.en = pickVoice('en');
-    }
-    pick();
-    try { w.speechSynthesis.onvoiceschanged = pick; } catch (e) { }
-    setTimeout(pick, 900);                 // 部分浏览器异步填充语音列表
+    refreshVoices();
+    try { w.speechSynthesis.onvoiceschanged = refreshVoices; } catch (e) { }
+    setTimeout(refreshVoices, 900);         // 部分浏览器异步填充语音列表
+    setTimeout(refreshVoices, 2500);        // iOS 上有时要更久才给列表
+    bindUnlock();                           // iOS：首次交互才算解锁并重取语音列表
+  }
+  /* 没有该档语音时的统一提示：一个会话里每档只弹一次（沿用 TTS.warned）。
+     措辞必须说清「不读了」，因为此时如果照常朗读，Chrome 会退用列表里第一个中文语音，
+     macOS 上那通常是粤语 —— 正是「国语档读成粤语」这个 bug。 */
+  function warnNoVoice(k) {
+    if (TTS.warned[k]) return;
+    TTS.warned[k] = 1;
+    toast('系统里没有' + (VOICE_LABEL[k] || k) + '语音，暂时不朗读（不读总比读成粤语好）。' +
+      '请到 系统设置 → 辅助功能 → 朗读内容 里下载后再用。', 'bad', 4200);
   }
   /* 当前发音档位 */
   function voiceKind() {
@@ -126,13 +200,26 @@
   function speakOne(text, kind, then) {
     if (!TTS.ok || !text) return false;
     var def = VOICE_DEF[kind] || VOICE_DEF.zh;
+    var v = TTS.by[kind];
+    /* 懒加载兜底：这一档还没有语音时，重新取一次语音列表再试。
+       覆盖 getVoices() 延迟返回的情况（Chrome 常常先给空列表，几十毫秒后才填上）。 */
+    if (!v) {
+      refreshVoices();
+      v = TTS.by[kind];
+    }
+    /* 重新取过仍然没有 → 不朗读。
+       绝不能只靠 u.lang='zh-CN' 就发声：Chrome 找不到匹配语音时会退用列表里第一个
+       中文语音，macOS 上那正是粤语 Sinji，于是「国语档」读出粤语 —— 用户实测到的 bug。
+       这里宁可安静，也不发出一个错的读音。 */
+    if (!v) { warnNoVoice(kind); return false; }
     try {
       var u = new w.SpeechSynthesisUtterance(text);
       u.lang = def.lang;                   // 只靠 lang 不够，语音必须一起指定
-      if (TTS.by[kind]) u.voice = TTS.by[kind];   // 各档位只用自己的语音，互不串用
+      u.voice = v;                         // 各档位只用自己的语音，互不串用
       u.rate = (kind === 'en' ? .75 : .8); u.pitch = 1.05; u.volume = 1;
       if (then) u.onend = then;
       w.speechSynthesis.speak(u);
+      TTS.last = { text: text, lang: u.lang, voice: v.name || '', voiceLang: langOf(v) };
       return true;
     } catch (e) { return false; }
   }
@@ -146,8 +233,27 @@
     try { w.speechSynthesis.cancel(); } catch (e) { }
     (function next() {
       if (my !== speakToken || i >= texts.length) return;
-      speakOne(texts[i++], kind, next);
+      var ok = speakOne(texts[i++], kind, next);
+      /* 那一档没有语音时 speakOne 会返回 false（并已提示过），这里必须继续推进，
+         否则多音字的「词→字」序列会卡在第一段再也走不下去。i 会递增，不会死循环。 */
+      if (!ok) next();
     })();
+  }
+  /* 供「读一次」按钮使用：**同步**朗读当前字，不经 setTimeout。
+     这一点在 iOS Safari 上是决定性的：setTimeout 会脱离用户手势的调用栈，
+     而 iOS 要求首次 speak 发生在手势事件里，否则静默无声。 */
+  function speakNow() {
+    var ch = TTS.curCh || '';
+    if (!ch) return false;
+    unlockTTS();
+    refreshVoices();                      // iOS 上交互后语音列表才真的到齐
+    /* 手势内直接读，不受「自动朗读」开关影响 —— 用户主动点了就是想听 */
+    var st = w.Store.state.settings;
+    var auto = st.autoRead;
+    st.autoRead = true;                   // 临时放行，speakChar 会再检查 sound
+    var r = speakChar(ch);
+    st.autoRead = auto;
+    return r;
   }
   /* 读一个字：按当前档位选文本与语音；英语没有对应单词时退回国语读汉字 */
   function speakChar(ch) {
@@ -169,10 +275,113 @@
   /* 一个字一种发音只自动读一次：重复渲染、重写同一个字都不会再读；换档位允许重读 */
   function autoSpeak(ch) {
     if (!ch) return;
+    /* iOS 未解锁时不要自动读：iOS Safari 会把它静默拦截，用户只会觉得「这应用坏了」，
+       反而不如不读。解锁后（用户点过一下屏幕）自动朗读照常。 */
+    if (NEEDS_GESTURE && !TTS.unlocked) return;
     var key = voiceKind() + '|' + ch;
     if (TTS.spoken[key]) return;
     TTS.spoken[key] = 1;
     setTimeout(function () { speakChar(ch); }, 280);
+  }
+
+  /* ---------- 语音诊断面板 ----------
+     「国语档读成粤语」这类问题光看界面看不出来，必须把系统真实语音清单摊开给用户：
+     到底装了几条语音、每条 lang 是什么、我们三档各自选中了哪一条、上一次实际用的又是哪一条。
+     面板里的每一条都来自 getVoices() 的真实返回，不写死。 */
+  var DIAG_SAMPLE = '春';
+  /* 某一档现在的实际状态（面板与提示共用同一套判断） */
+  function voiceStateText(k) {
+    var v = TTS.by[k];
+    if (v) return { cls: 'ok', text: '已选 ' + (v.name || '(无名)') + '（' + (langOf(v) || '?') + '）' };
+    var degrade = k === 'zh' ? '可能读成粤语' : (k === 'yue' ? '可能读成国语' : '可能读成中文');
+    if (TTS.st[k] === 'pending') {
+      return { cls: 'wait', text: '语音列表尚未就绪，正在等待系统返回…' };
+    }
+    return { cls: 'bad', text: '未找到 → 正退化为系统默认（' + degrade + '）' };
+  }
+  function openVoiceDiag() {
+    refreshVoices();                       // 打开前取一次最新的（列表可能是延迟到的）
+    var vs = TTS.voices || [];
+    var zhList = [], i, v;
+    for (i = 0; i < vs.length; i++) if (isChineseLang(langOf(vs[i]))) zhList.push(vs[i]);
+
+    /* 每条中文语音被哪一档用上了（按对象同一性比对，不靠名字猜） */
+    function usedBy(vo) {
+      var out = [];
+      for (var j = 0; j < VOICE_KINDS.length; j++) {
+        if (TTS.by[VOICE_KINDS[j]] === vo) out.push(VOICE_LABEL[VOICE_KINDS[j]]);
+      }
+      return out.length ? out.join(' / ') : '未使用';
+    }
+    var rows = '';
+    if (!zhList.length) {
+      rows = '<div class="vd-empty">系统里一条中文语音都没有' +
+        (vs.length ? '（共 ' + vs.length + ' 条语音，但都不是中文）' : '') + '</div>';
+    }
+    for (i = 0; i < zhList.length; i++) {
+      v = zhList[i];
+      var u = usedBy(v);
+      rows += '<div class="vd-row"><span class="vd-name">' +
+        escHtml(v.name || '(无名)') + ' — ' + escHtml(langOf(v) || '(无 lang)') +
+        '</span><span class="vd-use' + (u === '未使用' ? ' off' : '') + '">' + escHtml(u) + '</span></div>';
+    }
+
+    /* 三档各自的状态 + 试听 */
+    var kindRows = '';
+    for (i = 0; i < VOICE_KINDS.length; i++) {
+      var k = VOICE_KINDS[i], st = voiceStateText(k);
+      kindRows += '<div class="vd-kind"><div class="vd-kind-hd">' + escHtml(VOICE_LABEL[k]) +
+        '<button class="btn btn-mini" data-act="try-' + k + '">试听</button></div>' +
+        '<div class="vd-state ' + st.cls + '">' + escHtml(st.text) + '</div></div>';
+    }
+
+    var last = TTS.last;
+    var lastText = last
+      ? escHtml(last.text) + '　→　lang=' + escHtml(last.lang) + '　语音=' +
+        escHtml((last.voice || '(无名)') + '（' + (last.voiceLang || '?') + '）')
+      : '还没有朗读过';
+
+    /* 国语档没语音时，直接给出下载路径 —— 这是用户唯一能自己解决的办法 */
+    var hint = '';
+    if (!TTS.by.zh) {
+      hint = '<div class="vd-hint">国语档没找到可用语音，所以现在不会朗读（避免读成粤语）。' +
+        'macOS / iOS：系统设置 → 辅助功能 → 朗读内容 → 系统声音 → 下载「简体中文」后回到本页。</div>';
+    }
+    /* 移动端专属信息：iOS Safari 一定要先有用户交互，否则 speak 会被静默拦截 */
+    var mh = '<div class="vd-hint">用户交互：' +
+      (TTS.unlocked ? '已解锁（可以发声）'
+        : (IS_IOS ? '未解锁 —— 手机上必须先点一下屏幕，自动朗读才会出声' : '未解锁（桌面端不受影响）')) +
+      '</div>';
+    if (IS_IOS) {
+      mh += '<div class="vd-hint">手机上点了「读一次」还是没声音？依次检查：' +
+        '① 侧边静音开关拨到响铃位（置静音时 Safari 不会发声）；' +
+        '② 设置 → 辅助功能 → 朗读内容 → 声音 → 是否有中文语音；' +
+        '③ 关闭其他正在朗读的页面。</div>';
+    }
+
+    modal('<h3>语音诊断</h3>' +
+      '<p class="vd-sum">系统语音共 <b>' + vs.length + '</b> 条，中文类 <b>' + zhList.length + '</b> 条</p>' +
+      '<div class="vd-sec">中文语音清单</div><div class="vd-list">' + rows + '</div>' +
+      '<div class="vd-sec">三档实际选中情况</div>' + kindRows +
+      '<div class="vd-sec">最后一次朗读实际用的</div><div class="vd-last">' + lastText + '</div>' +
+      hint + mh +
+      '<div class="row-actions">' +
+      '<button class="btn btn-ghost" data-act="refresh">重新检测</button>' +
+      '<button class="btn btn-main" data-act="close">关闭</button>' +
+      '</div>',
+      function (act) {
+        if (act === 'close' || !act) { closeModal(); return; }
+        if (act === 'refresh') { openVoiceDiag(); return; }   // 重开一次即重新读取语音清单
+        var m = /^try-(zh|yue|en)$/.exec(act);
+        if (m) {
+          var kk = m[1];
+          // 试听用同一个字，方便三档直接对比；英语档读这个字的英文单词，没有就退回读汉字
+          var sample = DIAG_SAMPLE;
+          if (kk === 'en') sample = enWordOf(DIAG_SAMPLE) || DIAG_SAMPLE;
+          speakText(sample, kk);
+          openVoiceDiag();                    // 重画，让「最后一次朗读」变成真实数据
+        }
+      });
   }
 
   /* ================= 小工具 ================= */
@@ -537,6 +746,7 @@
     pe.title = pyAll;
   }
   function renderPracMeta(ch, total) {
+    TTS.curCh = ch;                       // 记下当前字，「读一次」按钮靠它同步朗读
     var d = w.HZ_DICT && w.HZ_DICT[ch] ? w.HZ_DICT[ch] : {};
     $('pracProgress').textContent = '第 ' + (PR.i + 1) + ' / ' + PR.list.length + ' 个字　「' + ch + '」';
     var en = enWordOf(ch);
@@ -718,6 +928,17 @@
         if (on) setTimeout(function () { speakChar(PR.list[PR.i]); }, 120);
       }
     }
+    /* 「读一次」按钮：直接在点击事件里同步朗读（不经过 setTimeout）。
+       手机上如果听不到自动朗读，点这个一定出声 —— iOS Safari 只认手势内的 speak。 */
+    var btnSpeak = $('btnSpeak');
+    if (btnSpeak) btnSpeak.onclick = function () {
+      unlockTTS();
+      var ok = speakNow();
+      if (!ok) {
+        toast(IS_IOS ? '手机第一次点按钮后才能出声，请再点一次' : '这个发音暂时读不出来',
+          'bad', 2200);
+      }
+    };
     if (btnRead) btnRead.onclick = function () {
       applyRead(!w.Store.getSetting('autoRead'));
     };
@@ -725,7 +946,6 @@
 
     /* 发音档位：国语 / 粤语 / 英语 */
     var voiceSeg = $('voiceSeg');
-    var VOICE_NAME = { zh: '国语（普通话）', yue: '粤语', en: '英语' };
     function applyVoice(k, silent) {
       if (k !== 'yue' && k !== 'en') k = 'zh';
       w.Store.setSetting('voice', k);
@@ -733,12 +953,8 @@
         b.classList.toggle('on', b.getAttribute('data-voice') === k);
       });
       if (silent) return;
-      // 系统里没装这个语音时提醒一次（装了才能真的读出粤语/英语）
-      if (TTS.ok && !TTS.by[k] && !TTS.warned[k]) {
-        TTS.warned[k] = 1;
-        toast('系统里好像还没装' + VOICE_NAME[k] + '语音，现在先用默认语音读。' +
-          '可以在「设置 → 辅助功能 → 朗读内容」里下载后再试。', 'bad', 3600);
-      }
+      // 系统里没装这个语音时提醒一次（speakOne 会拒绝朗读，不会用错的语音顶替）
+      if (TTS.ok && !TTS.by[k]) warnNoVoice(k);
       if (k === 'en') toast('英语档：读这个字的英文单词', 'good', 1600);
       var ch = PR.list[PR.i];
       if (ch) {
@@ -755,6 +971,8 @@
       var b = e.target.closest('[data-voice]');
       if (b) applyVoice(b.getAttribute('data-voice'));
     });
+    var btnDiag = $('btnVoiceDiag');
+    if (btnDiag) btnDiag.onclick = function () { openVoiceDiag(); };
     applyVoice(w.Store.getSetting('voice') || 'zh', true);
 
     document.querySelectorAll('.prac-tabs .tab').forEach(function (b) {
