@@ -107,10 +107,26 @@ function T(name, fn) {
   T('四下 27《巨人的花园》含「硕允砌牌禁惩踪啸私颊拆」', () =>
     C['4b'].units[7].lessons[1].chars.join('') === '硕允砌牌禁惩踪啸私颊拆'
       ? true : C['4b'].units[7].lessons[1].chars.join(''));
-  T('未升级的册次课文数保持原样（5a19/6a15）', () => {
+  T('五年级上册 33 课（2022 版 8 单元）220 字', () => {
+    const n = C['5a'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['5a'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 33 && C['5a'].units.length === 8 && c === 220) ? true : (n + '课/' + c + '字');
+  });
+  T('五上 12《少年中国说》含「欧洲泻潜腾兽胎皇途」、13《圆明园》含「组征」', () => {
+    const l12 = C['5a'].units[3].lessons[1].chars.join('');
+    const l13 = C['5a'].units[3].lessons[2].chars.join('');
+    return (l12 === '欧洲泻潜腾兽胎皇途' && l13 === '估损组殿征览境宏唐侵销罪略')
+      ? true : '12:' + l12 + ' | 13:' + l13;
+  });
+  T('五上语文园地六含「孝喻躁泣弛卑亢赋」、园地七含省份简称', () => {
+    const y6 = C['5a'].units[5].lessons[3].chars.join('');
+    const y7 = C['5a'].units[6].lessons[3].chars.join('');
+    return (y6 === '孝喻躁泣弛卑亢赋' && y7 === '湘粤蜀沪滇赣闽陕窑皖')
+      ? true : 'Y6:' + y6 + ' | Y7:' + y7;
+  });
+  T('未升级的册次课文数保持原样（6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('5a') === 19 && n('6a') === 15)
-      ? true : [n('5a'), n('6a')].join('/');
+    return n('6a') === 15 ? true : String(n('6a'));
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
