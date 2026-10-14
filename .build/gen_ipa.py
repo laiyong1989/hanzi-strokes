@@ -102,7 +102,7 @@ def main():
     try:
         import cmudict
     except ImportError:
-        print('需要 cmudict：pip install cmudict（装在 .workbuddy 的 python 环境里）')
+        print('需要 cmudict：pip install cmudict')
         return
     d = cmudict.dict()
 
