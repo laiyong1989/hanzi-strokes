@@ -24,18 +24,18 @@
 
 ## 1. 环境速查
 
-### 运行时（必须用绝对路径，不要用裸命令）
+### 运行时（按本机实际安装位置取，不要假设裸命令可用）
 
 ```bash
-NODE=/Users/leo/.workbuddy/binaries/node/versions/22.22.2-6/bin/node
-PY=/Users/leo/.workbuddy/binaries/python/versions/3.13.12/bin/python3
-PYV=/Users/leo/.workbuddy/binaries/python/envs/default/bin/python   # 装了 cmudict / pyobjc
-NODE_PATH=/Users/leo/.workbuddy/binaries/node/workspace/node_modules
+# 若 node / python3 不在 PATH，用 `command -v` 或包管理器前缀定位后固定下来
+NODE=$(command -v node)              # 需 Node 18+（本机验证过 22.x）
+PY=$(command -v python3)             # 需 Python 3.10+；生成音标另需 cmudict
+NODE_PATH=<jsdom 所在的 node_modules 目录>   # 例：<npm 前缀>/lib/node_modules
 ```
 
-- Node.js **22.22.2**（managed）；jsdom 装在 `/Users/leo/.workbuddy/binaries/node/workspace/node_modules`
-- Python **3.13.12**（managed）；venv 里额外装了 `cmudict`（生成英文音标用）、`pyobjc-framework-CoreServices`
-- 无 npm 全局安装、无 brew、**无 `gh` CLI**
+- Node.js 22.x（isolated managed 运行时）；`jsdom` 装在上述 `NODE_PATH` 指向的目录，**运行校验脚本必须显式传入**
+- Python 3.13（isolated managed 运行时）；其 venv 里额外装了 `cmudict`（生成英文音标用）、`pyobjc-framework-CoreServices`
+- 无 npm 全局安装、无 brew、无 `gh` CLI（推送走 SSH，不需要 gh）
 
 ### 常用命令
 
@@ -65,12 +65,13 @@ cp index.html sw.js manifest.webmanifest dist/ && cp -R css js data assets dist/
 
 ### 环境限制（会反复踩，记牢）
 
-1. **headless Chrome 的 `--dump-dom` 输出通道坏了**（返回 0 字节），且不带参数时沙箱初始化失败
-   （`sandbox initialization failed: Operation not permitted`）。
-   **但加 `--no-sandbox` 后 CDP 调试端口完全正常** → 已据此写 `.build/run-smoke.js`，
+1. **headless Chrome 的 `--dump-dom` 输出通道不可靠**（返回 0 字节），且不带参数时沙箱初始化
+   可能失败（`sandbox initialization failed: Operation not permitted`）。
+   **但加 `--no-sandbox` 后 CDP 调试端口工作正常** → 已据此写 `.build/run-smoke.js`，
    用 CDP 连上去直接读页面 `#out` 文本，绕开坏掉的输出通道。
    jsdom 校验（`.build/verify.js`、`.build/regress.js）仍作为快速回归，两者互补。
-2. **无 GitHub 凭证**：无 `gh`、无 SSH 公钥注册、无 PAT、无钥匙串条目、GitHub MCP 工具未暴露。推送已用 `hzpb.pushDisabled=true` 暂停。
+2. **GitHub 推送已通**：`origin` 已配置，SSH 认证可用，`hzpb.pushDisabled` 已解除。
+   若某次推送失败，脚本会分类给出处理命令（详见 `scripts/auto-sync.sh`）。
 3. **外网下载不稳定**：曾尝试下载 chinese-xinhua 的 `word.json`（26MB）失败，释义改为手写。
 4. **Bash 里的 `grep` 常被沙箱静默失败**：多分支匹配一律用 Grep 工具；macOS 是 BSD grep，**不支持 `-P`**。
 
@@ -175,13 +176,13 @@ localStorage['hzpb.v1'] // 存档；settings = { sound, demoSpeed, autoRead, voi
 | # | 优先级 | 事项 | 说明 |
 |---|---|---|---|
 | T1 | **高** | **线上版本缺白屏修复** | 源 `index.html` 已改，`dist/index.html` 未同步。需 `cp` 同步后重新发布，否则线上点「开始写字」仍白屏 |
-| T2 | 中 | GitHub 推送搁置 | 用户登不上 GitHub。恢复：`git config --local --unset hzpb.pushDisabled` → 用户注册 `~/.ssh/id_ed25519_github.pub` 并在 github.com/new 建空仓库 → `git remote add origin` + `git push -u origin main` |
-| T3 | 中 | 提交身份是占位值 | `Lai Yong <lai.yong@users.noreply.github.com>`，拿到真实 GitHub 用户名后需改并修正历史 |
+| T2 | — | ~~GitHub 推送搁置~~ | ✅ 已解决：`origin` 已配置并推送成功（`main` 已设上游跟踪），SSH 认证可用，无需 `gh` CLI |
+| T3 | 低 | 提交身份用的是 noreply 邮箱 | 当前 `git config user.email` 为 `<用户名>@users.noreply.github.com`，不暴露真实邮箱；如需换成真实身份再改 |
 | T4 | ~~中~~ | ~~`smoke-test.html` 无法在本机跑~~ | ✅ 已解决：新增 `.build/run-smoke.js`（CDP 驱动 headless Chrome），113 项 18 秒跑完，可随时自动执行 |
 | T5 | 中 | P0 产品优化未实施 | 见 `docs/产品评估-2026-10-13.md`：年级册次设置(P0-2)、存档备份恢复(P0-3)、错字本(P0-4)、家长周报(P0-5) |
 | T6 | 低 | 3–6 年级课文归属缺失 | 占字量 68.9% 的课名是「第 N 组」，「按课文学习」在高年级失效 |
 | T7 | 低 | 激励天花板 | 金币唯一出口是喂宠物，200 金币（≈23 个三星字）即到顶，之后只进不出 |
-| T8 | 低 | LICENSE 未创建 | README 建议**分离授权**：代码 MIT / 字形沿用 Arphic PL / 自建数据 CC BY-NC-SA 4.0。未擅自创建，等用户定 |
+| T8 | — | ~~LICENSE 未创建~~ | ✅ 已解决：按分离授权落地 —— `LICENSE`（MIT，代码）+ `DATA-LICENSE.md`（自建数据 CC BY-NC-SA 4.0 / 美术 CC BY-NC 4.0）+ `data/LICENSE-NOTICE.txt`（字形沿用 Arphic PL） |
 
 ---
 

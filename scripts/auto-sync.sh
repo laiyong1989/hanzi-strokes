@@ -197,12 +197,12 @@ diagnose() {
 
 处理：
   1) 确认公钥已添加到 GitHub： https://github.com/settings/keys
-     cat ~/.ssh/id_ed25519_github.pub      # 复制整行去添加
+     cat ~/.ssh/<你的公钥>.pub             # 复制整行去添加
   2) 本机验证连通性（应看到 "Hi <用户名>! You've successfully authenticated"）：
      ssh -T git@github.com
   3) 若有多把密钥，确认本仓库用的是指定那把：
      git config core.sshCommand
-     应为： ssh -i ~/.ssh/id_ed25519_github -o IdentitiesOnly=yes
+     应为： ssh -i ~/.ssh/<你的私钥> -o IdentitiesOnly=yes
 E
 
   elif printf '%s' "$out" | grep -qE "Authentication failed|could not read Username|Invalid username or password|403|returned error: 401"; then
@@ -214,7 +214,7 @@ E
        git credential-osxkeychain erase   # 然后回车两次
        git push                            # 重新输入用户名 + Personal Access Token（不是账户密码）
   2) 令牌需要有 repo 权限： https://github.com/settings/tokens
-  3) 建议改用 SSH（本仓库已生成专用密钥）：
+  3) 建议改用 SSH（配置参考 https://docs.github.com/authentication/connecting-to-github-with-ssh）：
        git remote set-url origin git@github.com:<用户名>/<仓库>.git
 E
 
@@ -303,7 +303,7 @@ if [ -z "$REMOTE_URL" ]; then
   echo ""
   echo "${YEL}! 未配置远端 origin，已提交到本地但无法推送${RST}"
   cat <<'E'
-配置方式（SSH，本仓库已生成专用密钥 ~/.ssh/id_ed25519_github）：
+配置方式（SSH，需先在本机生成密钥并把公钥加到 GitHub）：
   git remote add origin git@github.com:<用户名>/<仓库>.git
   git push -u origin main
 

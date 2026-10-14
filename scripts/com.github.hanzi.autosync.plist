@@ -3,7 +3,8 @@
   开机自启：文件落盘后自动同步到 GitHub（macOS LaunchAgent）
 
   用法：
-    1. 把下面 <string> 里的仓库路径改成你自己的 checkout 路径（共 2 处：WorkingDirectory 与脚本参数）
+    1. 把下面 2 处 `__REPO__` 替换成你自己的 checkout 绝对路径
+       （ProgramArguments 的脚本路径 与 WorkingDirectory）
     2. cp scripts/com.github.hanzi.autosync.plist ~/Library/LaunchAgents/
     3. launchctl load -w ~/Library/LaunchAgents/com.github.hanzi.autosync.plist
 
@@ -21,11 +22,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/leo/WorkBuddy/文字笔顺/scripts/watch-sync.sh</string>
+        <string>__REPO__/scripts/watch-sync.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/leo/WorkBuddy/文字笔顺</string>
+    <string>__REPO__</string>
 
     <key>EnvironmentVariables</key>
     <dict>

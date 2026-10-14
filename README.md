@@ -194,13 +194,15 @@ node .build/run-smoke.js           # 113 项：真实浏览器冒烟测试（自
 
 ## 十、许可证
 
-代码与数据性质不同，采用**分离授权**：
+代码与数据性质不同，采用**分离授权**（各部分授权不可互相覆盖）：
 
-| 部分 | 授权 |
-|---|---|
-| 代码（`index.html`、`css/`、`js/`、`scripts/`、`smoke-test.html`） | MIT |
-| 字形数据（`data/strokes/`） | 沿用上游 **Arphic Public License**（不可改为 MIT，完整声明见 `data/LICENSE-NOTICE.txt`） |
-| 自建数据（`data/curriculum.js` 课程结构、`data/dict.js` 组词与释义） | CC BY-NC-SA 4.0（派生自教材，禁商业滥用，衍生数据同样开放） |
-| 美术（`assets/`） | CC BY-NC 4.0 |
+| 部分 | 授权 | 文件 |
+|---|---|---|
+| 代码（`index.html`、`css/`、`js/`、`scripts/`、`smoke-test.html`、`*.command`） | **MIT** | [`LICENSE`](LICENSE) |
+| 字形数据（`data/strokes/`） | **Arphic Public License**（上游授权，不可改为 MIT） | [`data/LICENSE-NOTICE.txt`](data/LICENSE-NOTICE.txt) |
+| 自建数据（`data/curriculum.js` 课程结构、`data/dict.js` 组词与释义） | **CC BY-NC-SA 4.0** | [`DATA-LICENSE.md`](DATA-LICENSE.md) |
+| 美术（`assets/`） | **CC BY-NC 4.0** | [`DATA-LICENSE.md`](DATA-LICENSE.md) |
 
-简写：Code: MIT · Data: CC BY-NC-SA 4.0 · Glyphs: Arphic Public License。
+简写：Code: MIT · Data: CC BY-NC-SA 4.0 · Glyphs: Arphic Public License · Art: CC BY-NC 4.0。
+
+课程结构依据教材公开整理资料编排，**仅供学习参考**；本仓库不分发教材原文或扫描页。
