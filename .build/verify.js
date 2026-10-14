@@ -88,6 +88,25 @@ function T(name, fn) {
   T('四上语文园地八含生字「韭芹椒蒜薯藕芋姜」', () =>
     C['4a'].units[7].lessons[0].chars.join('') === '韭芹椒蒜薯藕芋姜'
       ? true : C['4a'].units[7].lessons[0].chars.join(''));
+  T('四年级下册 37 课（2022 版 8 单元）250 字', () => {
+    const n = C['4b'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['4b'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 37 && C['4b'].units.length === 8 && c === 250) ? true : (n + '课/' + c + '字');
+  });
+  T('四下第一单元 3《天窗》含「慰藉烁蝙蝠」、5《琥珀》含「怒吼脂拭」（防课号错位）', () => {
+    const l3 = C['4b'].units[0].lessons[2].chars.join('');
+    const l5 = C['4b'].units[1].lessons[0].chars.join('');
+    return (l3 === '慰藉卜锐滩帐烁蝙蝠霸鹰' && l5 === '怒吼脂拭餐划晌辣渗挣番埋刷测详')
+      ? true : '3:' + l3 + ' | 5:' + l5;
+  });
+  T('四下第二单元含快乐读书吧且无生字', () => {
+    const ls = C['4b'].units[1].lessons;
+    const last = ls[ls.length - 1];
+    return (last.name === '快乐读书吧' && last.chars.length === 0) ? true : last.name + '/' + last.chars.length;
+  });
+  T('四下 27《巨人的花园》含「硕允砌牌禁惩踪啸私颊拆」', () =>
+    C['4b'].units[7].lessons[1].chars.join('') === '硕允砌牌禁惩踪啸私颊拆'
+      ? true : C['4b'].units[7].lessons[1].chars.join(''));
   T('未升级的册次课文数保持原样（5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
     return (n('5a') === 19 && n('6a') === 15)
