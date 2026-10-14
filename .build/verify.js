@@ -72,10 +72,26 @@ function T(name, fn) {
     const bad = Object.keys(want).filter(c => !D[c] || D[c].p[0] !== want[c]);
     return bad.length ? bad.map(c => c + '=' + (D[c] || {}).p).join(',') : true;
   });
-  T('未升级的册次课文数保持原样（4a21/5a19/6a15）', () => {
+  T('四年级上册 35 课（2022 版 8 单元）250 字', () => {
+    const n = C['4a'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['4a'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 35 && C['4a'].units.length === 8 && c === 250) ? true : (n + '课/' + c + '字');
+  });
+  T('四上第八单元 5 课齐全且顺序正确', () => {
+    const ls = C['4a'].units[7].lessons;
+    const want = ['语文园地八', '24《我将无我，不负人民》', '25《为中华之崛起而读书》', '26*《延安，我把你追寻》', '27《古诗三首》'];
+    return ls.map(l => l.name).join('|') === want.join('|') ? true : ls.map(l => l.name).join('|');
+  });
+  T('四上语文园地四含生字「卉玫瑰牡丹蕾茉莉棠」', () =>
+    C['4a'].units[3].lessons[4].chars.join('') === '卉玫瑰牡丹蕾茉莉棠'
+      ? true : C['4a'].units[3].lessons[4].chars.join(''));
+  T('四上语文园地八含生字「韭芹椒蒜薯藕芋姜」', () =>
+    C['4a'].units[7].lessons[0].chars.join('') === '韭芹椒蒜薯藕芋姜'
+      ? true : C['4a'].units[7].lessons[0].chars.join(''));
+  T('未升级的册次课文数保持原样（5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
-      ? true : [n('4a'), n('5a'), n('6a')].join('/');
+    return (n('5a') === 19 && n('6a') === 15)
+      ? true : [n('5a'), n('6a')].join('/');
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
