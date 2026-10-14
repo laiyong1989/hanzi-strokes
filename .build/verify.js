@@ -43,10 +43,22 @@ function T(name, fn) {
   });
   T('一下语文园地三含新增字「止斤寸丁千旦」', () =>
     C['1b'].units[2].lessons[3].chars.join('') === '止斤寸丁千旦' ? true : C['1b'].units[2].lessons[3].chars.join(''));
-  T('未升级的册次课文数保持原样（3a21/4a21/5a19/6a15）', () => {
+  T('三年级上册 34 课（2022 版 8 单元）250 字', () => {
+    const n = C['3a'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['3a'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 34 && C['3a'].units.length === 8 && c === 250) ? true : (n + '课/' + c + '字');
+  });
+  T('三上第八单元 5 课齐全且顺序正确', () => {
+    const ls = C['3a'].units[7].lessons;
+    const want = ['23《司马光》', '24《一定要争气》', '25《手术台就是阵地》', '26*《一个粗瓷大碗》', '语文园地八'];
+    return ls.map(l => l.name).join('|') === want.join('|') ? true : ls.map(l => l.name).join('|');
+  });
+  T('三上语文园地三含生字「恒圣萌妥轴阁培厘」', () =>
+    C['3a'].units[2].lessons[3].chars.join('') === '恒圣萌妥轴阁培厘' ? true : C['3a'].units[2].lessons[3].chars.join(''));
+  T('未升级的册次课文数保持原样（3b21/4a21/5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('3a') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
-      ? true : [n('3a'), n('4a'), n('5a'), n('6a')].join('/');
+    return (n('3b') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
+      ? true : [n('3b'), n('4a'), n('5a'), n('6a')].join('/');
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
