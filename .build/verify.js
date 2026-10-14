@@ -55,10 +55,27 @@ function T(name, fn) {
   });
   T('三上语文园地三含生字「恒圣萌妥轴阁培厘」', () =>
     C['3a'].units[2].lessons[3].chars.join('') === '恒圣萌妥轴阁培厘' ? true : C['3a'].units[2].lessons[3].chars.join(''));
-  T('未升级的册次课文数保持原样（3b21/4a21/5a19/6a15）', () => {
+  T('三年级下册 35 课（2022 版 8 单元）250 字', () => {
+    const n = C['3b'].units.reduce((s, u) => s + u.lessons.length, 0);
+    const c = C['3b'].units.reduce((s, u) => s + u.lessons.reduce((a, l) => a + l.chars.length, 0), 0);
+    return (n === 35 && C['3b'].units.length === 8 && c === 250) ? true : (n + '课/' + c + '字');
+  });
+  T('三下第八单元 4 课齐全且顺序正确', () => {
+    const ls = C['3b'].units[7].lessons;
+    const want = ['25《慢性子裁缝和急性子顾客》', '26《漏》', '27*《枣核》', '语文园地八'];
+    return ls.map(l => l.name).join('|') === want.join('|') ? true : ls.map(l => l.name).join('|');
+  });
+  T('三下语文园地一含生字「匕忆艺乙冗犬税兑执」', () =>
+    C['3b'].units[0].lessons[4].chars.join('') === '匕忆艺乙冗犬税兑执' ? true : C['3b'].units[0].lessons[4].chars.join(''));
+  T('3b 多音字按课文定首读音（称chèn/驯xùn/拓tuò/瞭liào/咳ké）', () => {
+    const want = {称: 'chèn', 驯: 'xùn', 拓: 'tuò', 瞭: 'liào', 咳: 'ké'};
+    const bad = Object.keys(want).filter(c => !D[c] || D[c].p[0] !== want[c]);
+    return bad.length ? bad.map(c => c + '=' + (D[c] || {}).p).join(',') : true;
+  });
+  T('未升级的册次课文数保持原样（4a21/5a19/6a15）', () => {
     const n = s => C[s].units.reduce((a, u) => a + u.lessons.length, 0);
-    return (n('3b') === 21 && n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
-      ? true : [n('3b'), n('4a'), n('5a'), n('6a')].join('/');
+    return (n('4a') === 21 && n('5a') === 19 && n('6a') === 15)
+      ? true : [n('4a'), n('5a'), n('6a')].join('/');
   });
   T('所有课文生字都有字帖与字典', () => {
     const bad = [];
